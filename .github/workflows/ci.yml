@@ -1,0 +1,22 @@
+# Agents cannot change this file: their push tokens never get the Workflows permission;
+# only the host uses it once, to create the repository from this template.
+name: ci
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - run: pip install pytest
+      - run: if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+      # Exit code 5 means no tests collected yet (a brand-new project); anything else fails.
+      - run: python -m pytest -q || [ $? -eq 5 ]
