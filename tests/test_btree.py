@@ -91,6 +91,87 @@ class BTreeTests(unittest.TestCase):
         self.assertEqual(len(depths(t._root, 0)), 1)
         self.assertEqual(len(t._root.keys) <= 2 * t.order - 1, True)
 
+    def test_delete_missing_key(self):
+        t = BTree()
+        self.assertFalse(t.delete(1))
+        t.insert(1, "a")
+        self.assertFalse(t.delete(2))
+        self.assertEqual(len(t), 1)
+
+    def test_delete_all_in_random_order_match_dict(self):
+        rng = random.Random(7)
+        for order in (2, 3, 8):
+            t = BTree(order=order)
+            ref = {}
+            keys = list(range(1500))
+            rng.shuffle(keys)
+            for k in keys:
+                t.insert(k, k)
+                ref[k] = k
+            rng.shuffle(keys)
+            for n, k in enumerate(keys):
+                self.assertTrue(t.delete(k))
+                del ref[k]
+                if n % 150 == 0:
+                    self.assertEqual(len(t), len(ref))
+                    self.assertEqual(list(t.items()), sorted(ref.items()))
+                    self.assert_balanced(t)
+            self.assertEqual(len(t), 0)
+            self.assertEqual(list(t.items()), [])
+            self.assertTrue(t._root.leaf)
+
+    def test_interleaved_insert_delete_match_dict(self):
+        rng = random.Random(3)
+        t = BTree(order=2)
+        ref = {}
+        for _ in range(5000):
+            k = rng.randrange(300)
+            if rng.random() < 0.5:
+                t.insert(k, k)
+                ref[k] = k
+            else:
+                self.assertEqual(t.delete(k), k in ref)
+                ref.pop(k, None)
+        self.assertEqual(len(t), len(ref))
+        self.assertEqual(list(t.items()), sorted(ref.items()))
+        self.assert_balanced(t)
+
+    def test_root_shrinks_after_deletes(self):
+        t = BTree(order=2)
+        for k in range(50):
+            t.insert(k, k)
+        height_before = self.height(t._root)
+        for k in range(45):
+            t.delete(k)
+        self.assertLess(self.height(t._root), height_before)
+        self.assertEqual([k for k, _ in t.items()], list(range(45, 50)))
+
+    def assert_balanced(self, t):
+        def walk(node, lo, hi):
+            self.assertTrue(all(lo is None or lo < k for k in node.keys))
+            self.assertTrue(all(hi is None or k < hi for k in node.keys))
+            self.assertLessEqual(len(node.keys), 2 * t.order - 1)
+            if node is not t._root:
+                self.assertGreaterEqual(len(node.keys), t.order - 1)
+            if node.leaf:
+                return {0}
+            self.assertEqual(len(node.children), len(node.keys) + 1)
+            depths = set()
+            bounds = [lo] + node.keys + [hi]
+            for i, c in enumerate(node.children):
+                for d in walk(c, bounds[i], bounds[i + 1]):
+                    depths.add(d + 1)
+            return depths
+
+        self.assertEqual(len(walk(t._root, None, None)), 1)
+
+    def height(self, node):
+        h = 0
+        while not node.leaf:
+            node = node.children[0]
+            h += 1
+        return h
+
 
 if __name__ == "__main__":
     unittest.main()

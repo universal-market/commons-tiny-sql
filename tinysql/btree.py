@@ -57,6 +57,16 @@ class BTree:
         if self._insert_nonfull(self._root, key, value):
             self._size += 1
 
+    def delete(self, key: Any) -> bool:
+        """Remove ``key``. Return True when it was present."""
+        if key not in self:
+            return False
+        self._delete(self._root, key)
+        if not self._root.keys and not self._root.leaf:
+            self._root = self._root.children[0]
+        self._size -= 1
+        return True
+
     def items(self) -> Iterator[Tuple[Any, Any]]:
         """Yield (key, value) pairs in ascending key order."""
         yield from self._walk(self._root, None, None)
@@ -104,6 +114,85 @@ class BTree:
                 if key > node.keys[i]:
                     i += 1
             node = node.children[i]
+
+    def _is_thin(self, node: _Node) -> bool:
+        """True when a non-root node has fewer than ``order`` keys."""
+        return len(node.keys) < self.order
+
+    def _delete(self, node: _Node, key: Any) -> None:
+        """Delete ``key`` from the subtree at ``node``, which has >= order keys
+        unless it is the root. The key must be present in the subtree."""
+        i = bisect_left(node.keys, key)
+        found = i < len(node.keys) and node.keys[i] == key
+        if found and node.leaf:
+            del node.keys[i]
+            del node.values[i]
+            return
+        if found:
+            left, right = node.children[i], node.children[i + 1]
+            if not self._is_thin(left):
+                k, v = self._max_pair(left)
+                node.keys[i], node.values[i] = k, v
+                self._delete(left, k)
+            elif not self._is_thin(right):
+                k, v = self._min_pair(right)
+                node.keys[i], node.values[i] = k, v
+                self._delete(right, k)
+            else:
+                self._merge(node, i)
+                self._delete(left, key)
+            return
+        child = node.children[i]
+        if self._is_thin(child):
+            self._fill(node, i)
+            self._delete(node, key)  # the fill may have moved the key
+            return
+        self._delete(child, key)
+
+    def _max_pair(self, node: _Node) -> Tuple[Any, Any]:
+        while not node.leaf:
+            node = node.children[-1]
+        return node.keys[-1], node.values[-1]
+
+    def _min_pair(self, node: _Node) -> Tuple[Any, Any]:
+        while not node.leaf:
+            node = node.children[0]
+        return node.keys[0], node.values[0]
+
+    def _fill(self, node: _Node, i: int) -> None:
+        """Give thin child ``i`` one more key by borrowing or merging."""
+        child = node.children[i]
+        if i > 0 and not self._is_thin(node.children[i - 1]):
+            left = node.children[i - 1]
+            child.keys.insert(0, node.keys[i - 1])
+            child.values.insert(0, node.values[i - 1])
+            if not child.leaf:
+                child.children.insert(0, left.children.pop())
+            node.keys[i - 1] = left.keys.pop()
+            node.values[i - 1] = left.values.pop()
+        elif i < len(node.keys) and not self._is_thin(node.children[i + 1]):
+            right = node.children[i + 1]
+            child.keys.append(node.keys[i])
+            child.values.append(node.values[i])
+            if not child.leaf:
+                child.children.append(right.children.pop(0))
+            node.keys[i] = right.keys.pop(0)
+            node.values[i] = right.values.pop(0)
+        elif i < len(node.keys):
+            self._merge(node, i)
+        else:
+            self._merge(node, i - 1)
+
+    def _merge(self, node: _Node, i: int) -> None:
+        """Fold separator i and child i+1 into child i."""
+        left, right = node.children[i], node.children[i + 1]
+        left.keys.append(node.keys.pop(i))
+        left.values.append(node.values.pop(i))
+        left.keys.extend(right.keys)
+        left.values.extend(right.values)
+        if not left.leaf:
+            left.children.extend(right.children)
+        del node.children[i + 1]
 
     def _walk(self, node: _Node, low: Any, high: Any) -> Iterator[Tuple[Any, Any]]:
         start = 0 if low is None else bisect_left(node.keys, low)
