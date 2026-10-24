@@ -91,6 +91,7 @@ class Select:
     limit: Optional[int] = None
     offset: int = 0
     distinct: bool = False
+    having: Optional[Expr] = None
 
 
 @dataclass(frozen=True)
@@ -215,6 +216,7 @@ class _Parser:
         if self.accept("GROUP"):
             self.expect("BY")
             group_by = self.ident_list()
+        having = self.expr() if self.accept("HAVING") else None
         order_by = None
         order_desc = False
         if self.accept("ORDER"):
@@ -234,7 +236,7 @@ class _Parser:
             offset = self.expect("NUMBER").value
             if not isinstance(offset, int):
                 raise ParseError("OFFSET takes an integer")
-        return Select(columns, table, where, group_by, order_by, order_desc, limit, offset, distinct)
+        return Select(columns, table, where, group_by, order_by, order_desc, limit, offset, distinct, having)
 
     def update(self):
         table = self.expect("IDENT").value

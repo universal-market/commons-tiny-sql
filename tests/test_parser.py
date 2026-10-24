@@ -118,6 +118,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT dept FROM emp GROUP BY dept")
         self.assertEqual(stmt.group_by, ("dept",))
 
+    def test_having(self):
+        stmt = parse("SELECT dept FROM emp GROUP BY dept HAVING dept = 'x'")
+        self.assertIsNotNone(stmt.having)
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))

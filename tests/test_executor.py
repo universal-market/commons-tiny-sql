@@ -280,6 +280,15 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = ex.run(parse("SELECT name FROM users GROUP BY name"))
         self.assertEqual(len(rows), len({r["name"] for r in ex.tables["users"].scan()}))
 
+    def test_having_filters_groups(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT name FROM users GROUP BY name HAVING name = 'z'"))
+        self.assertEqual(rows, [{"name": "z"}])
+
     def test_group_by_rejects_ungrouped_column(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse

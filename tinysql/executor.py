@@ -143,6 +143,8 @@ class Executor:
             for name in names:
                 if name not in stmt.group_by:
                     raise ExecError(f"column {name!r} must appear in GROUP BY")
+        if stmt.having is not None and not stmt.group_by:
+            raise ExecError("HAVING requires GROUP BY")
         projected = [{out: r[src] for src, out in items} for r in rows]
         if stmt.group_by:
             # One row per group: keep the first row seen for each group key.
@@ -150,8 +152,10 @@ class Executor:
             grouped = []
             for r, p in zip(rows, projected):
                 key = tuple(r[g] for g in stmt.group_by)
-                if key not in seen_groups:
-                    seen_groups.add(key)
+                if key in seen_groups:
+                    continue
+                seen_groups.add(key)
+                if stmt.having is None or self._eval(stmt.having, r) is True:
                     grouped.append(p)
             projected = grouped
         if stmt.distinct:
