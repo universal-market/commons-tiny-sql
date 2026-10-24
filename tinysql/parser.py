@@ -42,6 +42,12 @@ class IsNull:
 
 
 @dataclass(frozen=True)
+class Like:
+    operand: "Expr"
+    pattern: "Expr"
+
+
+@dataclass(frozen=True)
 class InList:
     operand: "Expr"
     items: tuple
@@ -71,7 +77,7 @@ class Not:
     operand: "Expr"
 
 
-Expr = Union[Column, Literal, Compare, IsNull, InList, And, Or, Not]
+Expr = Union[Column, Literal, Compare, IsNull, InList, Like, And, Or, Not]
 
 
 @dataclass(frozen=True)
@@ -341,6 +347,8 @@ class _Parser:
             return Not(IsNull(left)) if negated else IsNull(left)
         if self.accept("BETWEEN"):
             return self.between(left)
+        if self.accept("LIKE"):
+            return Like(left, self.operand())
         if self.accept("NOT"):
             if self.accept("BETWEEN"):
                 return Not(self.between(left))

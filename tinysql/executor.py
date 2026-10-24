@@ -9,7 +9,7 @@ and WHERE keeps a row only when its condition is TRUE.
 
 from typing import Any, Dict, List, Optional
 
-from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Literal, Not, Or, Select, Update
+from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Like, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
 
 PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
@@ -25,6 +25,25 @@ COMPARE = {
 
 
 COUNT_STAR = ("COUNT(*)",)
+
+
+def like_match(value, pattern):
+    """SQL LIKE with % (any run of characters) as the only wildcard."""
+    parts = pattern.split("%")
+    if len(parts) == 1:
+        return value == pattern
+    if not value.startswith(parts[0]) or not value.endswith(parts[-1]):
+        return False
+    if len(value) < len(parts[0]) + len(parts[-1]):
+        return False
+    pos = len(parts[0])
+    end = len(value) - len(parts[-1])
+    for part in parts[1:-1]:
+        found = value.find(part, pos, end)
+        if found < 0:
+            return False
+        pos = found + len(part)
+    return pos <= end
 
 
 class ExecError(ValueError):
@@ -136,6 +155,12 @@ class Executor:
             if a in values:
                 return True
             return None if None in values else False
+        if isinstance(expr, Like):
+            value = self._eval(expr.operand, row)
+            pattern = self._eval(expr.pattern, row)
+            if value is None or pattern is None:
+                return None
+            return like_match(str(value), str(pattern))
         if isinstance(expr, IsNull):
             return self._eval(expr.operand, row) is None
         if isinstance(expr, Compare):

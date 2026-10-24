@@ -1,7 +1,7 @@
 import unittest
 
 from tinysql.parser import (
-    And, Column, ColumnDef, Compare, DropTable, InList, Insert, IsNull, Literal, Not, Or, ParseError, Select, parse,
+    And, Column, ColumnDef, Compare, DropTable, InList, Insert, Like, IsNull, Literal, Not, Or, ParseError, Select, parse,
 )
 from tinysql.tokenizer import TokenizeError
 
@@ -85,6 +85,10 @@ class SelectTests(unittest.TestCase):
             stmt.where,
             Not(And(Compare(">=", Column("a"), Literal(1)), Compare("<=", Column("a"), Literal(3)))),
         )
+
+    def test_where_like(self):
+        stmt = parse("SELECT * FROM t WHERE a LIKE 'ab%'")
+        self.assertEqual(stmt.where, Like(Column("a"), Literal("ab%")))
 
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
