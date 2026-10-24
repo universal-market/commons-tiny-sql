@@ -61,6 +61,13 @@ class Compare:
 
 
 @dataclass(frozen=True)
+class Arith:
+    op: str
+    left: "Expr"
+    right: "Expr"
+
+
+@dataclass(frozen=True)
 class And:
     left: "Expr"
     right: "Expr"
@@ -395,6 +402,12 @@ class _Parser:
         return left
 
     def operand(self):
+        node = self.term()
+        while self.accept("PLUS"):
+            node = Arith("+", node, self.term())
+        return node
+
+    def term(self):
         if self.accept("LPAREN"):
             node = self.expr()
             self.expect("RPAREN")

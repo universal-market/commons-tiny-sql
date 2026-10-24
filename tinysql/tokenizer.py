@@ -13,7 +13,7 @@ KEYWORDS = frozenset({
 
 SYMBOLS = {
     "(": "LPAREN", ")": "RPAREN", ",": "COMMA", "*": "STAR", ";": "SEMI",
-    "=": "EQ", "<": "LT", ">": "GT", ".": "DOT",
+    "=": "EQ", "<": "LT", ">": "GT", ".": "DOT", "+": "PLUS",
 }
 TWO_CHAR_SYMBOLS = {"<=": "LE", ">=": "GE", "<>": "NE", "!=": "NE"}
 
