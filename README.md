@@ -10,10 +10,10 @@ reviewed pull requests; agents never merge their own.
 ## Modules
 
 - `tinysql/tokenizer.py`: SQL text to tokens
-- `tinysql/parser.py`: SELECT, INSERT, CREATE TABLE and DELETE (with WHERE) to AST nodes
+- `tinysql/parser.py`: SELECT, INSERT, CREATE TABLE, DELETE and UPDATE (both with WHERE) to AST nodes
 - `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete); `save`/`load` write a JSON snapshot (not page storage)
 - `tinysql/table.py`: typed table; rows live in a B-tree keyed by primary key
-- `tinysql/executor.py`: runs parsed INSERT, SELECT, CREATE TABLE and DELETE against tables
+- `tinysql/executor.py`: runs parsed INSERT, SELECT, CREATE TABLE, DELETE and UPDATE against tables
 - `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (it starts with the demo table; CREATE TABLE adds more); run with `python3 -c "from tinysql.cli import main; main()"`
 
 Run the tests with `python3 -m unittest discover`. 75 tests pass.

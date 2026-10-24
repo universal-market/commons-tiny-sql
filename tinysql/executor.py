@@ -9,7 +9,7 @@ and WHERE keeps a row only when its condition is TRUE.
 
 from typing import Any, Dict, List, Optional
 
-from tinysql.parser import And, Column, Compare, CreateTable, Delete, Insert, Literal, Not, Or, Select
+from tinysql.parser import And, Column, Compare, CreateTable, Delete, Insert, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
 
 PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
@@ -41,6 +41,8 @@ class Executor:
             return self._create(stmt)
         if isinstance(stmt, Delete):
             return self._delete(stmt)
+        if isinstance(stmt, Update):
+            return self._update(stmt)
         raise ExecError(f"cannot run {type(stmt).__name__}")
 
     def _create(self, stmt: CreateTable) -> int:
@@ -66,6 +68,14 @@ class Executor:
         except TableError as exc:
             raise ExecError(str(exc)) from exc
         return 1
+
+    def _update(self, stmt: Update) -> int:
+        table = self._table(stmt.table)
+        if not isinstance(stmt.value, Literal):
+            raise ExecError("UPDATE SET takes a literal value")
+        return table.update_where(
+            lambda r: self._eval(stmt.where, r) is True, stmt.column, stmt.value.value
+        )
 
     def _delete(self, stmt: Delete) -> int:
         table = self._table(stmt.table)

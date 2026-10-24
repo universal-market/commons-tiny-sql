@@ -97,5 +97,19 @@ class DeleteExecutorTests(unittest.TestCase):
         self.assertEqual(ex.run(parse("DELETE FROM users WHERE score > 100")), 0)
 
 
+class UpdateExecutorTests(unittest.TestCase):
+    def test_update_matching_rows(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users VALUES (1, 'al', 2.0)"))
+        ex.run(parse("INSERT INTO users VALUES (2, 'bo', 3.0)"))
+        self.assertEqual(ex.run(parse("UPDATE users SET name = 'zed' WHERE id = 2")), 1)
+        self.assertEqual(ex.run(parse("SELECT name FROM users WHERE id = 2")), [{"name": "zed"}])
+        with self.assertRaises(Exception):
+            ex.run(parse("UPDATE users SET id = 9 WHERE id = 1"))
+
+
 if __name__ == "__main__":
     unittest.main()

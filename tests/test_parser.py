@@ -125,5 +125,15 @@ class DeleteTests(unittest.TestCase):
             parse("DELETE t")
 
 
+class UpdateTests(unittest.TestCase):
+    def test_update_set_with_where(self):
+        from tinysql.parser import Update
+
+        self.assertEqual(
+            parse("UPDATE t SET name = 'bo' WHERE id = 3"),
+            Update("t", "name", Literal("bo"), Compare("=", Column("id"), Literal(3))),
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

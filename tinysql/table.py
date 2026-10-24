@@ -52,6 +52,22 @@ class Table:
             self._rows.delete(key)
         return len(doomed)
 
+    def update_where(self, match, column: str, value: Any) -> int:
+        """Set ``column`` to ``value`` on every row where ``match(row)`` is true; return how many.
+
+        The primary key cannot be changed. The new value is type-checked.
+        """
+        if column == self.primary_key:
+            raise TableError("cannot update the primary key")
+        if column not in self._by_name:
+            raise TableError(f"unknown column {column!r}")
+        self._check(self._by_name[column], value)
+        hits = [row for row in self.scan() if match(row)]
+        for row in hits:
+            row[column] = value
+            self._rows.insert(row[self.primary_key], row)
+        return len(hits)
+
     def get(self, key: Any) -> Optional[Dict[str, Any]]:
         row = self._rows.get(key)
         return dict(row) if row is not None else None
