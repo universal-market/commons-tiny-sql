@@ -135,6 +135,16 @@ class SelectTests(unittest.TestCase):
         self.assertEqual(stmt.where.left.op, "+")
         self.assertEqual(stmt.where.left.right.op, "*")
 
+    def test_negative_literal_in_where(self):
+        stmt = parse("SELECT a FROM t WHERE a = -1")
+        self.assertEqual(stmt.where.right.value, -1)
+
+    def test_unary_minus_on_column(self):
+        stmt = parse("SELECT a FROM t WHERE -a = 1")
+        self.assertEqual(stmt.where.left.op, "-")
+        self.assertEqual(stmt.where.left.left, Literal(0))
+        self.assertEqual(stmt.where.left.right, Column("a"))
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))

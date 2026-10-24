@@ -338,6 +338,11 @@ class _Parser:
         return tuple(names)
 
     def literal(self):
+        negative = self.accept("MINUS")
+        if negative and self.peek().kind != "NUMBER":
+            raise ParseError(f"expected number after '-' at {self.peek().pos}")
+        if negative:
+            return -self.advance().value
         tok = self.peek()
         if tok.kind in ("NUMBER", "STRING"):
             self.advance()
@@ -422,6 +427,8 @@ class _Parser:
             node = self.expr()
             self.expect("RPAREN")
             return node
+        if self.accept("MINUS"):  # unary minus on a column: -a is 0 - a
+            return Arith("-", Literal(0), self.term())
         if self.peek().kind == "IDENT":
             return Column(self.advance().value)
         return Literal(self.literal())

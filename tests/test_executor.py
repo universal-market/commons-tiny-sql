@@ -316,6 +316,24 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = ex.run(parse("SELECT id FROM users WHERE id + 1 * 2 = 11"))
         self.assertEqual(rows, [{"id": 9}])
 
+    def test_where_negative_literal(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-3, 'n')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE id = -3"))
+        self.assertEqual(rows, [{"name": "n"}])
+
+    def test_where_unary_minus_on_column(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-4, 'm')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE -id = 4"))
+        self.assertEqual(rows, [{"name": "m"}])
+
     def test_group_by_rejects_ungrouped_column(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse
