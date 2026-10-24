@@ -192,7 +192,7 @@ class _Parser:
         distinct = bool(self.accept("DISTINCT"))
         if self.accept("STAR"):
             columns = None
-        elif self.peek().kind in ("COUNT", "MIN", "MAX"):
+        elif self.peek().kind in ("COUNT", "MIN", "MAX", "SUM"):
             func = self.advance().kind
             self.expect("LPAREN")
             if func == "COUNT" and self.accept("STAR"):

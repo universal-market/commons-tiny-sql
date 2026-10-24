@@ -102,6 +102,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT COUNT(a) FROM t")
         self.assertEqual(stmt.columns, (("COUNT", "a"),))
 
+    def test_sum_column(self):
+        stmt = parse("SELECT SUM(a) FROM t")
+        self.assertEqual(stmt.columns, (("SUM", "a"),))
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))

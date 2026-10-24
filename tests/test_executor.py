@@ -186,6 +186,14 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual(self.run_sql(db, "SELECT COUNT(name) FROM users"), [{"COUNT(name)": 1}])
         self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
 
+    def test_sum_skips_nulls(self):
+        db = make_db()
+        for i, n in ((1, 2.0), (2, 5.0)):
+            self.run_sql(db, f"INSERT INTO users (id, score) VALUES ({i}, {n})")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (3)")
+        self.assertEqual(self.run_sql(db, "SELECT SUM(score) FROM users"), [{"SUM(score)": 7.0}])
+        self.assertEqual(self.run_sql(db, "SELECT SUM(score) FROM users WHERE id > 99"), [{"SUM(score)": None}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

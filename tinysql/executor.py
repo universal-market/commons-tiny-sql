@@ -112,6 +112,8 @@ class Executor:
                        if (stmt.where is None or self._eval(stmt.where, r) is True) and r[name] is not None]
             if func == "COUNT":
                 return [{f"COUNT({name})": len(matched)}]
+            if func == "SUM":
+                return [{f"SUM({name})": sum(matched) if matched else None}]
             pick = min if func == "MIN" else max
             return [{f"{func}({name})": pick(matched) if matched else None}]
         if stmt.columns == COUNT_STAR:
