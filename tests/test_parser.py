@@ -1,7 +1,7 @@
 import unittest
 
 from tinysql.parser import (
-    And, Column, Compare, Insert, Literal, Not, Or, ParseError, Select, parse,
+    And, Column, ColumnDef, Compare, Insert, Literal, Not, Or, ParseError, Select, parse,
 )
 from tinysql.tokenizer import TokenizeError
 
@@ -86,6 +86,29 @@ class ErrorTests(unittest.TestCase):
     def test_tokenizer_errors_propagate(self):
         with self.assertRaises(TokenizeError):
             parse("SELECT @ FROM t")
+
+
+class CreateTableTests(unittest.TestCase):
+    def test_columns_and_primary_key(self):
+        stmt = parse("CREATE TABLE users (id INT, name TEXT NULL, PRIMARY KEY (id))")
+        self.assertEqual(stmt.table, "users")
+        self.assertEqual(stmt.primary_key, "id")
+        self.assertEqual(stmt.columns, (
+            ColumnDef("id", "INT", False),
+            ColumnDef("name", "TEXT", True),
+        ))
+
+    def test_unknown_type_is_rejected(self):
+        with self.assertRaises(ParseError):
+            parse("CREATE TABLE t (id FOO, PRIMARY KEY (id))")
+
+    def test_primary_key_must_name_a_column(self):
+        with self.assertRaises(ParseError):
+            parse("CREATE TABLE t (id INT, PRIMARY KEY (x))")
+
+    def test_duplicate_column_is_rejected(self):
+        with self.assertRaises(ParseError):
+            parse("CREATE TABLE t (id INT, id TEXT, PRIMARY KEY (id))")
 
 
 if __name__ == "__main__":

@@ -68,5 +68,19 @@ class ExecutorTests(unittest.TestCase):
             self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
 
 
+class CreateTableExecutorTests(unittest.TestCase):
+    def test_create_then_insert_and_select(self):
+        db = Executor({})
+        db.run(parse("CREATE TABLE t (id INT, name TEXT NULL, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t (id) VALUES (1)"))
+        self.assertEqual(db.run(parse("SELECT * FROM t")), [{"id": 1, "name": None}])
+
+    def test_existing_table_is_rejected(self):
+        db = Executor({})
+        db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -9,8 +9,10 @@ and WHERE keeps a row only when its condition is TRUE.
 
 from typing import Any, Dict, List, Optional
 
-from tinysql.parser import And, Column, Compare, Insert, Literal, Not, Or, Select
-from tinysql.table import Table, TableError
+from tinysql.parser import And, Column, Compare, CreateTable, Insert, Literal, Not, Or, Select
+from tinysql.table import Column as TableColumn, Table, TableError
+
+PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
 
 COMPARE = {
     "=": lambda a, b: a == b,
@@ -35,7 +37,19 @@ class Executor:
             return self._insert(stmt)
         if isinstance(stmt, Select):
             return self._select(stmt)
+        if isinstance(stmt, CreateTable):
+            return self._create(stmt)
         raise ExecError(f"cannot run {type(stmt).__name__}")
+
+    def _create(self, stmt: CreateTable) -> int:
+        if stmt.table in self.tables:
+            raise ExecError(f"table {stmt.table!r} already exists")
+        columns = [TableColumn(c.name, PY_TYPES[c.type_name], c.nullable) for c in stmt.columns]
+        try:
+            self.tables[stmt.table] = Table(stmt.table, columns, stmt.primary_key)
+        except TableError as exc:
+            raise ExecError(str(exc)) from exc
+        return 0
 
     def _table(self, name: str) -> Table:
         if name not in self.tables:
