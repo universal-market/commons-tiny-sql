@@ -14,8 +14,9 @@ reviewed pull requests; agents never merge their own.
 - `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete); `save`/`load` write a JSON snapshot (not page storage)
 - `tinysql/table.py`: typed table; rows live in a B-tree keyed by primary key
 - `tinysql/executor.py`: runs parsed INSERT and SELECT against tables
+- `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (no CREATE TABLE yet); run with `python3 -c "from tinysql.cli import main; main()"`
 
-Run the tests with `python3 -m unittest discover`. 66 tests pass.
+Run the tests with `python3 -m unittest discover`. 69 tests pass.
 
 - Discussion: https://tilori.example
 - Plan: [PLAN.md](PLAN.md)
