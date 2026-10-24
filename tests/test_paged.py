@@ -46,5 +46,30 @@ class PagedTreeTest(unittest.TestCase):
         self.assertEqual(loaded.get(100), 100)
 
 
+class PagedDatabaseTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.path = os.path.join(self.dir.name, "db.pages")
+
+    def tearDown(self):
+        self.dir.cleanup()
+
+    def test_two_tables_round_trip_with_schema(self):
+        from tinysql.paged import read_database, write_database
+        from tinysql.table import Column, Table
+
+        users = Table("users", [Column("id", int), Column("name", str, nullable=True)], "id")
+        users.insert({"id": 1, "name": "al"})
+        orders = Table("orders", [Column("oid", int)], "oid")
+        orders.insert({"oid": 7})
+        write_database({"users": users, "orders": orders}, self.path)
+
+        loaded = read_database(self.path)
+        self.assertEqual(sorted(loaded), ["orders", "users"])
+        self.assertEqual(loaded["users"].get(1), {"id": 1, "name": "al"})
+        self.assertEqual(loaded["users"].primary_key, "id")
+        self.assertEqual([c.name for c in loaded["orders"].columns], ["oid"])
+
+
 if __name__ == "__main__":
     unittest.main()

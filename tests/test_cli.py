@@ -33,6 +33,20 @@ class CliTests(unittest.TestCase):
             main(io.StringIO("SELECT name FROM users\n"), out, path)
             self.assertEqual(out.getvalue().splitlines()[-1], "(1 row)")
 
+    def test_create_table_survives_restart(self):
+        import io
+        import os
+        import tempfile
+
+        from tinysql.cli import main
+
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "db.pages")
+            main(io.StringIO("CREATE TABLE t (k INT, PRIMARY KEY (k))\nINSERT INTO t VALUES (5)\n"), io.StringIO(), path)
+            out = io.StringIO()
+            main(io.StringIO("SELECT k FROM t\n"), out, path)
+            self.assertEqual(out.getvalue().splitlines()[-1], "(1 row)")
+
 
 if __name__ == "__main__":
     unittest.main()

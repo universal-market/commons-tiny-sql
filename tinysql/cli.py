@@ -1,8 +1,8 @@
 """Read SQL statements from stdin and print the results.
 
-The schema is fixed for now: one demo table, ``users``, because the parser
-has no CREATE TABLE yet. With ``--db PATH`` the rows are kept in a page file:
-loaded at start if the file exists, and written back after each statement.
+A new database starts with one demo table, ``users``. With ``--db PATH`` every
+table (including ones made by CREATE TABLE) is kept in a page file: loaded at
+start if the file exists, and written back after each statement.
 """
 
 import os
@@ -10,7 +10,7 @@ import sys
 from typing import Any, List, Optional, TextIO
 
 from tinysql.executor import ExecError, Executor
-from tinysql.paged import read_tree, write_tree
+from tinysql.paged import read_database, write_database
 from tinysql.parser import ParseError, parse
 from tinysql.table import Column, Table, TableError
 from tinysql.tokenizer import TokenizeError
@@ -25,15 +25,13 @@ def demo_table() -> Table:
 
 
 def demo_executor(db_path: Optional[str] = None) -> Executor:
-    users = demo_table()
     if db_path and os.path.exists(db_path):
-        for row in read_tree(db_path).items():
-            users.insert(row[1])
-    return Executor({"users": users})
+        return Executor(read_database(db_path))
+    return Executor({"users": demo_table()})
 
 
-def save_demo(executor: Executor, db_path: str) -> None:
-    write_tree(executor.tables["users"]._rows, db_path)
+def save_database(executor: Executor, db_path: str) -> None:
+    write_database(executor.tables, db_path)
 
 
 def format_result(result: Any) -> str:
@@ -70,7 +68,7 @@ def main(
             continue
         print(run_line(executor, line), file=stdout)
         if db_path:
-            save_demo(executor, db_path)
+            save_database(executor, db_path)
 
 
 if __name__ == "__main__":
