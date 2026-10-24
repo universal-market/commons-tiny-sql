@@ -130,6 +130,11 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT a FROM t WHERE a - 1 = 3")
         self.assertEqual(stmt.where.left.op, "-")
 
+    def test_multiplication_binds_tighter_than_addition(self):
+        stmt = parse("SELECT a FROM t WHERE a + 2 * 3 = 7")
+        self.assertEqual(stmt.where.left.op, "+")
+        self.assertEqual(stmt.where.left.right.op, "*")
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))

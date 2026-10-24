@@ -402,14 +402,20 @@ class _Parser:
         return left
 
     def operand(self):
-        node = self.term()
+        node = self.product()
         while True:
             if self.accept("PLUS"):
-                node = Arith("+", node, self.term())
+                node = Arith("+", node, self.product())
             elif self.accept("MINUS"):
-                node = Arith("-", node, self.term())
+                node = Arith("-", node, self.product())
             else:
                 return node
+
+    def product(self):
+        node = self.term()
+        while self.accept("STAR"):
+            node = Arith("*", node, self.term())
+        return node
 
     def term(self):
         if self.accept("LPAREN"):

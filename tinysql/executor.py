@@ -184,6 +184,8 @@ class Executor:
             b = self._eval(expr.right, row)
             if a is None or b is None:
                 return None
+            if expr.op == "*":
+                return a * b
             return a + b if expr.op == "+" else a - b
         if isinstance(expr, InList):
             a = self._eval(expr.operand, row)
