@@ -173,6 +173,11 @@ class _Parser:
     def select(self):
         if self.accept("STAR"):
             columns = None
+        elif self.accept("COUNT"):
+            self.expect("LPAREN")
+            self.expect("STAR")
+            self.expect("RPAREN")
+            columns = ("COUNT(*)",)  # same as executor.COUNT_STAR
         else:
             columns = self.ident_list()
         self.expect("FROM")

@@ -72,6 +72,16 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users ORDER BY id LIMIT 2 OFFSET 1")
         self.assertEqual(rows, [{"id": 2}, {"id": 3}])
 
+    def test_count_star(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'b', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (3, 'c', 3.0)")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 3}])
+        self.assertEqual(
+            self.run_sql(db, "SELECT COUNT(*) FROM users WHERE id > 1"), [{"COUNT(*)": 2}]
+        )
+
     def test_errors(self):
         db = make_db()
         with self.assertRaisesRegex(ExecError, "no such table"):

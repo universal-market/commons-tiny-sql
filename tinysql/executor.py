@@ -24,6 +24,9 @@ COMPARE = {
 }
 
 
+COUNT_STAR = ("COUNT(*)",)
+
+
 class ExecError(ValueError):
     """Raised for unknown tables or columns."""
 
@@ -91,6 +94,9 @@ class Executor:
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
+        if stmt.columns == COUNT_STAR:
+            matched = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
+            return [{"COUNT(*)": len(matched)}]
         names = stmt.columns or tuple(all_names)
         for name in list(names) + ([stmt.order_by] if stmt.order_by else []):
             if name not in all_names:
