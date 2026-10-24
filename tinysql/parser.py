@@ -37,6 +37,11 @@ class Literal:
 
 
 @dataclass(frozen=True)
+class IsNull:
+    operand: "Expr"
+
+
+@dataclass(frozen=True)
 class Compare:
     op: str
     left: "Expr"
@@ -60,7 +65,7 @@ class Not:
     operand: "Expr"
 
 
-Expr = Union[Column, Literal, Compare, And, Or, Not]
+Expr = Union[Column, Literal, Compare, IsNull, And, Or, Not]
 
 
 @dataclass(frozen=True)
@@ -303,6 +308,9 @@ class _Parser:
 
     def comparison(self):
         left = self.operand()
+        if self.accept("IS"):
+            self.expect("NULL")
+            return IsNull(left)
         for kind, op in COMPARISON_OPS.items():
             if self.accept(kind):
                 return Compare(op, left, self.operand())

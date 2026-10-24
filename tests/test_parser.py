@@ -1,7 +1,7 @@
 import unittest
 
 from tinysql.parser import (
-    And, Column, ColumnDef, Compare, DropTable, Insert, Literal, Not, Or, ParseError, Select, parse,
+    And, Column, ColumnDef, Compare, DropTable, Insert, IsNull, Literal, Not, Or, ParseError, Select, parse,
 )
 from tinysql.tokenizer import TokenizeError
 
@@ -46,6 +46,10 @@ class SelectTests(unittest.TestCase):
     def test_insert_multiple_rows(self):
         stmt = parse("INSERT INTO t (a, b) VALUES (1, 'x'), (2, 'y')")
         self.assertEqual(stmt.rows, ((1, "x"), (2, "y")))
+
+    def test_where_is_null(self):
+        stmt = parse("SELECT * FROM t WHERE a IS NULL")
+        self.assertEqual(stmt.where, IsNull(Column("a")))
 
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")

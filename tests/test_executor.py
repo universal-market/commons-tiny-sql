@@ -85,6 +85,14 @@ class ExecutorTests(unittest.TestCase):
             with self.assertRaises(ExecError):
                 self.run_sql(db, sql)
 
+    def test_where_is_null(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (2, 'b')")
+        self.run_sql(db, "UPDATE users SET score = 1.5 WHERE id = 2")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE score IS NULL")
+        self.assertEqual(rows, [{"id": 1}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
