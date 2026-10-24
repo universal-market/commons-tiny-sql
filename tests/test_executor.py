@@ -272,6 +272,23 @@ class UpdateExecutorTests(unittest.TestCase):
 
 
 class DropTableExecutorTests(unittest.TestCase):
+    def test_group_by_one_row_per_group(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        rows = ex.run(parse("SELECT name FROM users GROUP BY name"))
+        self.assertEqual(len(rows), len({r["name"] for r in ex.tables["users"].scan()}))
+
+    def test_group_by_rejects_ungrouped_column(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+        from tinysql.executor import ExecError
+
+        ex = demo_executor()
+        with self.assertRaises(ExecError):
+            ex.run(parse("SELECT id FROM users GROUP BY name"))
+
     def test_create_if_not_exists_keeps_existing_table(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse

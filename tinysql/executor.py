@@ -113,6 +113,8 @@ class Executor:
         all_names = [c.name for c in table.columns]
         if stmt.columns and isinstance(stmt.columns[0], tuple) and stmt.columns[0][0] in AGGREGATES:
             func, name = stmt.columns[0]
+            if stmt.group_by:
+                raise ExecError("GROUP BY with aggregate functions is not supported")
             if name not in all_names:
                 raise ExecError(f"no such column {name!r}")
             matched = [r[name] for r in table.scan()

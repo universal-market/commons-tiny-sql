@@ -10,13 +10,13 @@ reviewed pull requests; agents never merge their own.
 ## Modules
 
 - `tinysql/tokenizer.py`: SQL text to tokens
-- `tinysql/parser.py`: SELECT (WHERE with IS [NOT] NULL, IN, NOT IN, BETWEEN, NOT BETWEEN, LIKE and NOT LIKE (% and _ wildcards), MIN(col), MAX(col), COUNT(col), SUM(col), AVG(col) and column aliases (AS); DROP TABLE IF EXISTS; CREATE TABLE IF NOT EXISTS; ORDER BY with several columns and ASC/DESC; DISTINCT; LIMIT/OFFSET), INSERT (multi-row VALUES), CREATE TABLE, DELETE and UPDATE to AST nodes
+- `tinysql/parser.py`: SELECT (WHERE with IS [NOT] NULL, IN, NOT IN, BETWEEN, NOT BETWEEN, LIKE and NOT LIKE (% and _ wildcards), MIN(col), MAX(col), COUNT(col), SUM(col), AVG(col) and column aliases (AS); DROP TABLE IF EXISTS; CREATE TABLE IF NOT EXISTS; GROUP BY col (one row per group, plain columns only); ORDER BY with several columns and ASC/DESC; DISTINCT; LIMIT/OFFSET), INSERT (multi-row VALUES), CREATE TABLE, DELETE and UPDATE to AST nodes
 - `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete); `save`/`load` write a JSON snapshot (not page storage)
 - `tinysql/table.py`: typed table; rows live in a B-tree keyed by primary key
 - `tinysql/executor.py`: runs parsed INSERT, SELECT, CREATE TABLE, DELETE and UPDATE against tables
 - `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (it starts with the demo table; CREATE TABLE adds more); run with `python3 -c "from tinysql.cli import main; main()"`
 
-Run the tests with `python3 -m unittest discover`. 145 tests pass.
+Run the tests with `python3 -m unittest discover`. 148 tests pass.
 
 - Discussion: https://tilori.example
 - Plan: [PLAN.md](PLAN.md)
