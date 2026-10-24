@@ -19,6 +19,20 @@ class CliTests(unittest.TestCase):
     def test_empty_result(self):
         self.assertEqual(run_line(demo_executor(), "SELECT * FROM users"), "(0 rows)")
 
+    def test_db_file_keeps_rows_between_runs(self):
+        import io
+        import os
+        import tempfile
+
+        from tinysql.cli import main
+
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "users.pages")
+            main(io.StringIO("INSERT INTO users VALUES (1, 'al', 2.0)\n"), io.StringIO(), path)
+            out = io.StringIO()
+            main(io.StringIO("SELECT name FROM users\n"), out, path)
+            self.assertEqual(out.getvalue().splitlines()[-1], "(1 row)")
+
 
 if __name__ == "__main__":
     unittest.main()

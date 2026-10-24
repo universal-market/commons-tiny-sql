@@ -5,6 +5,8 @@ parent, so children get lower page ids. Page 0 is the Pager header.
 Each save rewrites the whole file; nothing is updated in place yet.
 """
 
+import os
+
 from .btree import BTree, _Node
 from .pager import Pager, decode_node, encode_node
 
@@ -12,6 +14,8 @@ ROOT_PAGE = 1
 
 
 def write_tree(tree: BTree, path: str) -> None:
+    if os.path.exists(path):
+        os.remove(path)  # rewrite from scratch so old pages do not pile up
     with Pager(path, order=tree.order) as pager:
         _write_node(pager, tree._root, ROOT_PAGE)
 

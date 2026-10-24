@@ -1,25 +1,39 @@
 """Read SQL statements from stdin and print the results.
 
 The schema is fixed for now: one demo table, ``users``, because the parser
-has no CREATE TABLE yet.
+has no CREATE TABLE yet. With ``--db PATH`` the rows are kept in a page file:
+loaded at start if the file exists, and written back after each statement.
 """
 
+import os
 import sys
-from typing import Any, List, TextIO
+from typing import Any, List, Optional, TextIO
 
 from tinysql.executor import ExecError, Executor
+from tinysql.paged import read_tree, write_tree
 from tinysql.parser import ParseError, parse
 from tinysql.table import Column, Table, TableError
 from tinysql.tokenizer import TokenizeError
 
 
-def demo_executor() -> Executor:
-    users = Table(
+def demo_table() -> Table:
+    return Table(
         "users",
         [Column("id", int), Column("name", str, nullable=True), Column("score", float, nullable=True)],
         primary_key="id",
     )
+
+
+def demo_executor(db_path: Optional[str] = None) -> Executor:
+    users = demo_table()
+    if db_path and os.path.exists(db_path):
+        for row in read_tree(db_path).items():
+            users.insert(row[1])
     return Executor({"users": users})
+
+
+def save_demo(executor: Executor, db_path: str) -> None:
+    write_tree(executor.tables["users"]._rows, db_path)
 
 
 def format_result(result: Any) -> str:
@@ -46,14 +60,18 @@ def run_line(executor: Executor, line: str) -> str:
         return f"error: {exc}"
 
 
-def main(stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout) -> None:
-    executor = demo_executor()
+def main(
+    stdin: TextIO = sys.stdin, stdout: TextIO = sys.stdout, db_path: Optional[str] = None
+) -> None:
+    executor = demo_executor(db_path)
     for line in stdin:
         line = line.strip()
         if not line:
             continue
         print(run_line(executor, line), file=stdout)
+        if db_path:
+            save_demo(executor, db_path)
 
 
 if __name__ == "__main__":
-    main()
+    main(db_path=sys.argv[2] if sys.argv[1:2] == ["--db"] else None)
