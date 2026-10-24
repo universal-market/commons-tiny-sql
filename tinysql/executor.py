@@ -104,6 +104,14 @@ class Executor:
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
+        if stmt.columns and isinstance(stmt.columns[0], tuple):
+            func, name = stmt.columns[0]
+            if name not in all_names:
+                raise ExecError(f"no such column {name!r}")
+            matched = [r[name] for r in table.scan()
+                       if (stmt.where is None or self._eval(stmt.where, r) is True) and r[name] is not None]
+            pick = min if func == "MIN" else max
+            return [{f"{func}({name})": pick(matched) if matched else None}]
         if stmt.columns == COUNT_STAR:
             matched = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
             return [{"COUNT(*)": len(matched)}]

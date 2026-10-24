@@ -98,6 +98,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))
 
+    def test_max_column(self):
+        stmt = parse("SELECT MAX(a) FROM t")
+        self.assertEqual(stmt.columns, (("MAX", "a"),))
+
     def test_order_by_desc(self):
         stmt = parse("SELECT * FROM t ORDER BY a DESC")
         self.assertEqual((stmt.order_by, stmt.order_desc), (("a",), True))

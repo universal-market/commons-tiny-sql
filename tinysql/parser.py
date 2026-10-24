@@ -197,6 +197,11 @@ class _Parser:
             self.expect("STAR")
             self.expect("RPAREN")
             columns = ("COUNT(*)",)  # same as executor.COUNT_STAR
+        elif self.peek().kind in ("MIN", "MAX"):
+            func = self.advance().kind
+            self.expect("LPAREN")
+            columns = ((func, self.expect("IDENT").value),)
+            self.expect("RPAREN")
         else:
             columns = self.ident_list()
         self.expect("FROM")
