@@ -19,6 +19,7 @@ Open questions (to settle before code):
 - Is the free list needed now, or can deleted pages be leaked for this milestone?
 """
 
+import json
 import os
 import struct
 from typing import Optional
@@ -94,3 +95,46 @@ class Pager:
         if magic != MAGIC:
             raise ValueError(f"{self.path} is not a tinysql page file")
         return order, root, page_count
+
+
+_NODE_HEAD = struct.Struct(">BH")
+_LEN = struct.Struct(">H")
+_CHILD = struct.Struct(">I")
+
+
+def encode_node(leaf: bool, keys: list, values: list, child_ids: list) -> bytes:
+    """Encode one node as a page body (see the layout in the module docstring)."""
+    parts = [_NODE_HEAD.pack(1 if leaf else 0, len(keys))]
+    for key, value in zip(keys, values):
+        for item in (json.dumps(key).encode("utf-8"), json.dumps(value).encode("utf-8")):
+            parts.append(_LEN.pack(len(item)))
+            parts.append(item)
+    if not leaf:
+        parts.extend(_CHILD.pack(child) for child in child_ids)
+    data = b"".join(parts)
+    if len(data) > PAGE_SIZE:
+        raise ValueError(f"node is {len(data)} bytes, page limit is {PAGE_SIZE}")
+    return data
+
+
+def decode_node(data: bytes):
+    """Return (leaf, keys, values, child_ids) from a page body."""
+    flag, count = _NODE_HEAD.unpack_from(data, 0)
+    pos = _NODE_HEAD.size
+    keys, values = [], []
+    for _ in range(count):
+        pair = []
+        for _ in range(2):
+            (length,) = _LEN.unpack_from(data, pos)
+            pos += _LEN.size
+            pair.append(json.loads(data[pos:pos + length].decode("utf-8")))
+            pos += length
+        keys.append(pair[0])
+        values.append(pair[1])
+    child_ids = []
+    if not flag:
+        for _ in range(count + 1):
+            (child,) = _CHILD.unpack_from(data, pos)
+            child_ids.append(child)
+            pos += _CHILD.size
+    return bool(flag), keys, values, child_ids
