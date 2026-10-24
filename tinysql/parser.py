@@ -427,7 +427,8 @@ class _Parser:
             node = self.expr()
             self.expect("RPAREN")
             return node
-        if self.accept("MINUS"):  # unary minus on a column: -a is 0 - a
+        if self.peek().kind == "MINUS" and self.tokens[self.i + 1].kind != "NUMBER":
+            self.advance()  # unary minus on a column or group: -a is 0 - a
             return Arith("-", Literal(0), self.term())
         if self.peek().kind == "IDENT":
             return Column(self.advance().value)
