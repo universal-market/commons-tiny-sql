@@ -114,6 +114,8 @@ class Executor:
                 return [{f"COUNT({name})": len(matched)}]
             if func == "SUM":
                 return [{f"SUM({name})": sum(matched) if matched else None}]
+            if func == "AVG":
+                return [{f"AVG({name})": sum(matched) / len(matched) if matched else None}]
             pick = min if func == "MIN" else max
             return [{f"{func}({name})": pick(matched) if matched else None}]
         if stmt.columns == COUNT_STAR:
