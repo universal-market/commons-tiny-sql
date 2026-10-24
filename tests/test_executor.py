@@ -119,5 +119,20 @@ class UpdateExecutorTests(unittest.TestCase):
             ex.run(parse("UPDATE users SET id = 9 WHERE id = 1"))
 
 
+class DropTableExecutorTests(unittest.TestCase):
+    def test_drop_removes_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.executor import ExecError
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("DROP TABLE users"))
+        self.assertNotIn("users", ex.tables)
+        with self.assertRaises(ExecError):
+            ex.run(parse("SELECT * FROM users"))
+        with self.assertRaises(ExecError):
+            ex.run(parse("DROP TABLE users"))
+
+
 if __name__ == "__main__":
     unittest.main()

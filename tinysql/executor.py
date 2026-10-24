@@ -9,7 +9,7 @@ and WHERE keeps a row only when its condition is TRUE.
 
 from typing import Any, Dict, List, Optional
 
-from tinysql.parser import And, Column, Compare, CreateTable, Delete, Insert, Literal, Not, Or, Select, Update
+from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, Insert, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
 
 PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
@@ -39,6 +39,8 @@ class Executor:
             return self._select(stmt)
         if isinstance(stmt, CreateTable):
             return self._create(stmt)
+        if isinstance(stmt, DropTable):
+            return self._drop(stmt)
         if isinstance(stmt, Delete):
             return self._delete(stmt)
         if isinstance(stmt, Update):
@@ -53,6 +55,11 @@ class Executor:
             self.tables[stmt.table] = Table(stmt.table, columns, stmt.primary_key)
         except TableError as exc:
             raise ExecError(str(exc)) from exc
+        return 0
+
+    def _drop(self, stmt: DropTable) -> int:
+        self._table(stmt.table)
+        del self.tables[stmt.table]
         return 0
 
     def _table(self, name: str) -> Table:

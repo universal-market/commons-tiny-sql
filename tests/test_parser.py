@@ -1,7 +1,7 @@
 import unittest
 
 from tinysql.parser import (
-    And, Column, ColumnDef, Compare, Insert, Literal, Not, Or, ParseError, Select, parse,
+    And, Column, ColumnDef, Compare, DropTable, Insert, Literal, Not, Or, ParseError, Select, parse,
 )
 from tinysql.tokenizer import TokenizeError
 
@@ -46,6 +46,9 @@ class SelectTests(unittest.TestCase):
     def test_order_by_default_is_ascending(self):
         stmt = parse("SELECT * FROM t ORDER BY a")
         self.assertFalse(stmt.order_desc)
+
+    def test_drop_table(self):
+        self.assertEqual(parse("DROP TABLE t"), DropTable("t"))
 
     def test_limit_must_be_integer(self):
         with self.assertRaises(ParseError):

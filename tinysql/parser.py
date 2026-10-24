@@ -102,13 +102,18 @@ class ColumnDef:
 
 
 @dataclass(frozen=True)
+class DropTable:
+    table: str
+
+
+@dataclass(frozen=True)
 class CreateTable:
     table: str
     columns: Tuple[ColumnDef, ...]
     primary_key: str
 
 
-Statement = Union[Select, Insert, CreateTable, Delete, Update]
+Statement = Union[Select, Insert, CreateTable, DropTable, Delete, Update]
 
 COLUMN_TYPES = frozenset({"INT", "FLOAT", "TEXT", "BOOL"})
 
@@ -150,6 +155,9 @@ class _Parser:
             stmt = self.insert()
         elif self.accept("CREATE"):
             stmt = self.create_table()
+        elif self.accept("DROP"):
+            self.expect("TABLE")
+            stmt = DropTable(self.expect("IDENT").value)
         elif self.accept("DELETE"):
             stmt = self.delete()
         elif self.accept("UPDATE"):
