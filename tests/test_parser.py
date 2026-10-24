@@ -71,6 +71,10 @@ class SelectTests(unittest.TestCase):
             And(Compare(">=", Column("a"), Literal(1)), Compare("<=", Column("a"), Literal(3))),
         )
 
+    def test_where_not_in_list(self):
+        stmt = parse("SELECT * FROM t WHERE a NOT IN (1, 2)")
+        self.assertEqual(stmt.where, Not(InList(Column("a"), (Literal(1), Literal(2)))))
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))

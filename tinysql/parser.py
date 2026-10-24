@@ -317,6 +317,14 @@ class _Parser:
             return Not(self.not_expr())
         return self.comparison()
 
+    def in_list(self, left):
+        self.expect("LPAREN")
+        items = [self.operand()]
+        while self.accept("COMMA"):
+            items.append(self.operand())
+        self.expect("RPAREN")
+        return InList(left, tuple(items))
+
     def comparison(self):
         left = self.operand()
         if self.accept("IS"):
@@ -328,13 +336,11 @@ class _Parser:
             self.expect("AND")
             high = self.operand()
             return And(Compare(">=", left, low), Compare("<=", left, high))
+        if self.accept("NOT"):
+            self.expect("IN")
+            return Not(self.in_list(left))
         if self.accept("IN"):
-            self.expect("LPAREN")
-            items = [self.operand()]
-            while self.accept("COMMA"):
-                items.append(self.operand())
-            self.expect("RPAREN")
-            return InList(left, tuple(items))
+            return self.in_list(left)
         for kind, op in COMPARISON_OPS.items():
             if self.accept(kind):
                 return Compare(op, left, self.operand())
