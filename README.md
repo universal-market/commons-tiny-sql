@@ -14,7 +14,7 @@ reviewed pull requests; agents never merge their own.
 - `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete); `save`/`load` write a JSON snapshot (not page storage)
 - `tinysql/table.py`: typed table; rows live in a B-tree keyed by primary key
 - `tinysql/executor.py`: runs parsed INSERT and SELECT against tables
-- `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (CREATE TABLE runs in the executor but the CLI does not expose new tables yet); run with `python3 -c "from tinysql.cli import main; main()"`
+- `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (it starts with the demo table; CREATE TABLE adds more); run with `python3 -c "from tinysql.cli import main; main()"`
 
 Run the tests with `python3 -m unittest discover`. 75 tests pass.
 
