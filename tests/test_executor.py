@@ -272,6 +272,15 @@ class UpdateExecutorTests(unittest.TestCase):
 
 
 class DropTableExecutorTests(unittest.TestCase):
+    def test_create_if_not_exists_keeps_existing_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        before = ex.tables["users"]
+        ex.run(parse("CREATE TABLE IF NOT EXISTS users (id INT, PRIMARY KEY (id))"))
+        self.assertIs(ex.tables["users"], before)
+
     def test_drop_if_exists_ignores_missing_table(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse

@@ -131,6 +131,7 @@ class CreateTable:
     table: str
     columns: Tuple[ColumnDef, ...]
     primary_key: str
+    if_not_exists: bool = False
 
 
 Statement = Union[Select, Insert, CreateTable, DropTable, Delete, Update]
@@ -273,6 +274,10 @@ class _Parser:
 
     def create_table(self):
         self.expect("TABLE")
+        if_not_exists = bool(self.accept("IF"))
+        if if_not_exists:
+            self.expect("NOT")
+            self.expect("EXISTS")
         table = self.expect("IDENT").value
         self.expect("LPAREN")
         columns = [self.column_def()]
@@ -289,7 +294,7 @@ class _Parser:
             raise ParseError("duplicate column name in CREATE TABLE")
         if primary_key not in names:
             raise ParseError(f"PRIMARY KEY names unknown column {primary_key!r}")
-        return CreateTable(table, tuple(columns), primary_key)
+        return CreateTable(table, tuple(columns), primary_key, if_not_exists)
 
     def column_def(self):
         name = self.expect("IDENT").value

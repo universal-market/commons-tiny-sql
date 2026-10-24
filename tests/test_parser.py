@@ -126,6 +126,11 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t ORDER BY a")
         self.assertFalse(stmt.order_desc)
 
+    def test_create_table_if_not_exists(self):
+        stmt = parse("CREATE TABLE IF NOT EXISTS t (id INT, PRIMARY KEY (id))")
+        self.assertTrue(stmt.if_not_exists)
+        self.assertEqual(stmt.table, "t")
+
     def test_drop_table(self):
         self.assertEqual(parse("DROP TABLE t"), DropTable("t"))
 

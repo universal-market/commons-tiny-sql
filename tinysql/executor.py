@@ -64,6 +64,8 @@ class Executor:
 
     def _create(self, stmt: CreateTable) -> int:
         if stmt.table in self.tables:
+            if stmt.if_not_exists:
+                return 0
             raise ExecError(f"table {stmt.table!r} already exists")
         columns = [TableColumn(c.name, PY_TYPES[c.type_name], c.nullable) for c in stmt.columns]
         try:
