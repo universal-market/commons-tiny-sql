@@ -4,7 +4,10 @@ import tempfile
 import unittest
 
 from tinysql.btree import BTree
-from tinysql.paged import read_tree, write_tree
+from tinysql.executor import Executor
+from tinysql.parser import parse
+from tinysql.table import Column, Table
+from tinysql.paged import read_database, read_tree, write_database, write_tree
 
 
 class PagedTreeTest(unittest.TestCase):
@@ -71,6 +74,18 @@ class PagedTreeTest(unittest.TestCase):
         write_tree(tree, self.path)
         self.assertLess(os.path.getsize(self.path), len(before))
         self.assertEqual(list(read_tree(self.path).items()), list(tree.items()))
+
+    def test_database_survives_delete_and_update(self):
+        users = Table("users", [Column("id", int), Column("name", str)], primary_key="id")
+        db = Executor({"users": users})
+        for i in range(50):
+            db.run(parse(f"INSERT INTO users VALUES ({i}, 'n{i}')"))
+        db.run(parse("DELETE FROM users WHERE id > 39"))
+        db.run(parse("UPDATE users SET name = 'zz' WHERE id = 3"))
+        write_database(db.tables, self.path)
+        rows = list(read_database(self.path)["users"]._rows.items())
+        self.assertEqual(len(rows), 40)
+        self.assertEqual(rows[3], (3, {"id": 3, "name": "zz"}))
 
 class PagedDatabaseTest(unittest.TestCase):
     def setUp(self):
