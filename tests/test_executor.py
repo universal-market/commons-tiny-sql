@@ -202,6 +202,11 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual(self.run_sql(db, "SELECT AVG(score) FROM users"), [{"AVG(score)": 3.5}])
         self.assertEqual(self.run_sql(db, "SELECT AVG(score) FROM users WHERE id > 99"), [{"AVG(score)": None}])
 
+    def test_column_alias(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.assertEqual(self.run_sql(db, "SELECT name AS n, id FROM users"), [{"n": "a", "id": 1}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

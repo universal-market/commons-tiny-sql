@@ -36,6 +36,9 @@ def like_match(value, pattern):
     return re.fullmatch(regex, value, re.DOTALL) is not None
 
 
+AGGREGATES = ("COUNT", "MIN", "MAX", "SUM", "AVG")
+
+
 class ExecError(ValueError):
     """Raised for unknown tables or columns."""
 
@@ -104,7 +107,7 @@ class Executor:
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
-        if stmt.columns and isinstance(stmt.columns[0], tuple):
+        if stmt.columns and isinstance(stmt.columns[0], tuple) and stmt.columns[0][0] in AGGREGATES:
             func, name = stmt.columns[0]
             if name not in all_names:
                 raise ExecError(f"no such column {name!r}")
@@ -121,15 +124,16 @@ class Executor:
         if stmt.columns == COUNT_STAR:
             matched = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
             return [{"COUNT(*)": len(matched)}]
-        names = stmt.columns or tuple(all_names)
-        for name in list(names) + list(stmt.order_by or ()):
+        items = [(n, n) if isinstance(n, str) else n for n in stmt.columns or all_names]
+        names = [src for src, _ in items]
+        for name in names + list(stmt.order_by or ()):
             if name not in all_names:
                 raise ExecError(f"no such column {name!r}")
 
         rows = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
         for name in reversed(stmt.order_by or ()):
             rows.sort(key=lambda r: (r[name] is not None, r[name]), reverse=stmt.order_desc)
-        projected = [{n: r[n] for n in names} for r in rows]
+        projected = [{out: r[src] for src, out in items} for r in rows]
         if stmt.distinct:
             seen = set()
             unique = []

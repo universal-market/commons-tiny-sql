@@ -201,7 +201,7 @@ class _Parser:
                 columns = ((func, self.expect("IDENT").value),)
             self.expect("RPAREN")
         else:
-            columns = self.ident_list()
+            columns = self.select_list()
         self.expect("FROM")
         table = self.expect("IDENT").value
         where = self.expr() if self.accept("WHERE") else None
@@ -295,6 +295,18 @@ class _Parser:
             raise ParseError(f"unknown column type {type_tok.value!r}")
         nullable = bool(self.accept("NULL"))
         return ColumnDef(name, type_name, nullable)
+
+    def select_list(self):
+        """Comma-separated columns; `col AS alias` becomes a (col, alias) tuple."""
+        items = []
+        while True:
+            name = self.expect("IDENT").value
+            if self.accept("AS"):
+                items.append((name, self.expect("IDENT").value))
+            else:
+                items.append(name)
+            if not self.accept("COMMA"):
+                return tuple(items)
 
     def ident_list(self):
         names = [self.expect("IDENT").value]

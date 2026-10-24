@@ -110,6 +110,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT AVG(a) FROM t")
         self.assertEqual(stmt.columns, (("AVG", "a"),))
 
+    def test_column_alias(self):
+        stmt = parse("SELECT name AS n FROM t")
+        self.assertEqual(stmt.columns, (("name", "n"),))
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))
