@@ -165,6 +165,13 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users WHERE name NOT LIKE 'al%'")
         self.assertEqual(rows, [{"id": 2}])
 
+    def test_where_like_underscore(self):
+        db = make_db()
+        for i, name in ((1, "cat"), (2, "cot"), (3, "coat")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE name LIKE 'c_t'")
+        self.assertEqual(rows, [{"id": 1}, {"id": 2}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

@@ -7,6 +7,7 @@ NULL handling follows SQL's three-valued logic: a comparison with NULL is NULL,
 and WHERE keeps a row only when its condition is TRUE.
 """
 
+import re
 from typing import Any, Dict, List, Optional
 
 from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Like, Literal, Not, Or, Select, Update
@@ -28,22 +29,11 @@ COUNT_STAR = ("COUNT(*)",)
 
 
 def like_match(value, pattern):
-    """SQL LIKE with % (any run of characters) as the only wildcard."""
-    parts = pattern.split("%")
-    if len(parts) == 1:
-        return value == pattern
-    if not value.startswith(parts[0]) or not value.endswith(parts[-1]):
-        return False
-    if len(value) < len(parts[0]) + len(parts[-1]):
-        return False
-    pos = len(parts[0])
-    end = len(value) - len(parts[-1])
-    for part in parts[1:-1]:
-        found = value.find(part, pos, end)
-        if found < 0:
-            return False
-        pos = found + len(part)
-    return pos <= end
+    """SQL LIKE: % matches any run of characters, _ matches exactly one."""
+    regex = "".join(
+        ".*" if ch == "%" else "." if ch == "_" else re.escape(ch) for ch in pattern
+    )
+    return re.fullmatch(regex, value, re.DOTALL) is not None
 
 
 class ExecError(ValueError):
