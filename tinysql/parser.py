@@ -83,6 +83,7 @@ class Select:
     order_desc: bool = False
     limit: Optional[int] = None
     offset: int = 0
+    distinct: bool = False
 
 
 @dataclass(frozen=True)
@@ -182,6 +183,7 @@ class _Parser:
         return stmt
 
     def select(self):
+        distinct = bool(self.accept("DISTINCT"))
         if self.accept("STAR"):
             columns = None
         elif self.accept("COUNT"):
@@ -208,7 +210,7 @@ class _Parser:
             offset = self.expect("NUMBER").value
             if not isinstance(offset, int):
                 raise ParseError("OFFSET takes an integer")
-        return Select(columns, table, where, order_by, order_desc, limit, offset)
+        return Select(columns, table, where, order_by, order_desc, limit, offset, distinct)
 
     def update(self):
         table = self.expect("IDENT").value

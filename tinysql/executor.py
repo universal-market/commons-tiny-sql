@@ -109,10 +109,20 @@ class Executor:
                 key=lambda r: (r[stmt.order_by] is not None, r[stmt.order_by]),
                 reverse=stmt.order_desc,
             )
-        rows = rows[stmt.offset:]
+        projected = [{n: r[n] for n in names} for r in rows]
+        if stmt.distinct:
+            seen = set()
+            unique = []
+            for r in projected:
+                key = tuple(r.items())
+                if key not in seen:
+                    seen.add(key)
+                    unique.append(r)
+            projected = unique
+        projected = projected[stmt.offset:]
         if stmt.limit is not None:
-            rows = rows[: stmt.limit]
-        return [{n: r[n] for n in names} for r in rows]
+            projected = projected[: stmt.limit]
+        return projected
 
     def _eval(self, expr, row: Dict[str, Any]) -> Optional[bool]:
         if isinstance(expr, Column):

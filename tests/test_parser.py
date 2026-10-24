@@ -59,6 +59,11 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t WHERE a IN (1, 2)")
         self.assertEqual(stmt.where, InList(Column("a"), (Literal(1), Literal(2))))
 
+    def test_select_distinct(self):
+        stmt = parse("SELECT DISTINCT a FROM t")
+        self.assertTrue(stmt.distinct)
+        self.assertEqual(stmt.columns, ("a",))
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))

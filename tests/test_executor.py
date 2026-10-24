@@ -108,6 +108,13 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users WHERE id IN (1, 3)")
         self.assertEqual(rows, [{"id": 1}, {"id": 3}])
 
+    def test_select_distinct(self):
+        db = make_db()
+        for i, name in ((1, "a"), (2, "a"), (3, "b")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT DISTINCT name FROM users")
+        self.assertEqual(rows, [{"name": "a"}, {"name": "b"}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
