@@ -79,7 +79,23 @@ class Insert:
     values: Tuple[object, ...]
 
 
-Statement = Union[Select, Insert]
+@dataclass(frozen=True)
+class ColumnDef:
+    name: str
+    type_name: str  # INT, FLOAT, TEXT or BOOL
+    nullable: bool
+
+
+@dataclass(frozen=True)
+class CreateTable:
+    table: str
+    columns: Tuple[ColumnDef, ...]
+    primary_key: str
+
+
+Statement = Union[Select, Insert, CreateTable]
+
+COLUMN_TYPES = frozenset({"INT", "FLOAT", "TEXT", "BOOL"})
 
 
 def parse(text):
@@ -117,9 +133,11 @@ class _Parser:
             stmt = self.select()
         elif self.accept("INSERT"):
             stmt = self.insert()
+        elif self.accept("CREATE"):
+            stmt = self.create_table()
         else:
             got = self.peek()
-            raise ParseError(f"expected SELECT or INSERT at {got.pos}, got {got.kind}")
+            raise ParseError(f"expected SELECT, INSERT or CREATE at {got.pos}, got {got.kind}")
         self.accept("SEMI")
         self.expect("EOF")
         return stmt
@@ -159,6 +177,35 @@ class _Parser:
                 f"INSERT has {len(columns)} columns but {len(values)} values"
             )
         return Insert(table, columns, tuple(values))
+
+    def create_table(self):
+        self.expect("TABLE")
+        table = self.expect("IDENT").value
+        self.expect("LPAREN")
+        columns = [self.column_def()]
+        while self.accept("COMMA") and self.peek().kind != "PRIMARY":
+            columns.append(self.column_def())
+        self.expect("PRIMARY")
+        self.expect("KEY")
+        self.expect("LPAREN")
+        primary_key = self.expect("IDENT").value
+        self.expect("RPAREN")
+        self.expect("RPAREN")
+        names = [c.name for c in columns]
+        if len(set(names)) != len(names):
+            raise ParseError("duplicate column name in CREATE TABLE")
+        if primary_key not in names:
+            raise ParseError(f"PRIMARY KEY names unknown column {primary_key!r}")
+        return CreateTable(table, tuple(columns), primary_key)
+
+    def column_def(self):
+        name = self.expect("IDENT").value
+        type_tok = self.expect("IDENT")
+        type_name = type_tok.value.upper()
+        if type_name not in COLUMN_TYPES:
+            raise ParseError(f"unknown column type {type_tok.value!r}")
+        nullable = bool(self.accept("NULL"))
+        return ColumnDef(name, type_name, nullable)
 
     def ident_list(self):
         names = [self.expect("IDENT").value]
