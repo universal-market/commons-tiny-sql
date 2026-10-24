@@ -45,6 +45,13 @@ class Table:
             raise TableError(f"duplicate primary key {key!r}")
         self._rows.insert(key, clean)
 
+    def delete_where(self, keep_out) -> int:
+        """Delete every row for which ``keep_out(row)`` is true; return how many."""
+        doomed = [row[self.primary_key] for row in self.scan() if keep_out(row)]
+        for key in doomed:
+            self._rows.delete(key)
+        return len(doomed)
+
     def get(self, key: Any) -> Optional[Dict[str, Any]]:
         row = self._rows.get(key)
         return dict(row) if row is not None else None

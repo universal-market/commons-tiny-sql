@@ -80,6 +80,12 @@ class Insert:
 
 
 @dataclass(frozen=True)
+class Delete:
+    table: str
+    where: "Expr"  # required: DELETE without WHERE is rejected
+
+
+@dataclass(frozen=True)
 class ColumnDef:
     name: str
     type_name: str  # INT, FLOAT, TEXT or BOOL
@@ -93,7 +99,7 @@ class CreateTable:
     primary_key: str
 
 
-Statement = Union[Select, Insert, CreateTable]
+Statement = Union[Select, Insert, CreateTable, Delete]
 
 COLUMN_TYPES = frozenset({"INT", "FLOAT", "TEXT", "BOOL"})
 
@@ -135,9 +141,11 @@ class _Parser:
             stmt = self.insert()
         elif self.accept("CREATE"):
             stmt = self.create_table()
+        elif self.accept("DELETE"):
+            stmt = self.delete()
         else:
             got = self.peek()
-            raise ParseError(f"expected SELECT, INSERT or CREATE at {got.pos}, got {got.kind}")
+            raise ParseError(f"expected SELECT, INSERT, CREATE or DELETE at {got.pos}, got {got.kind}")
         self.accept("SEMI")
         self.expect("EOF")
         return stmt
@@ -158,6 +166,12 @@ class _Parser:
         if limit is not None and not isinstance(limit, int):
             raise ParseError("LIMIT takes an integer")
         return Select(columns, table, where, order_by, limit)
+
+    def delete(self):
+        self.expect("FROM")
+        table = self.expect("IDENT").value
+        self.expect("WHERE")
+        return Delete(table, self.expr())
 
     def insert(self):
         self.expect("INTO")

@@ -111,5 +111,19 @@ class CreateTableTests(unittest.TestCase):
             parse("CREATE TABLE t (id INT, id TEXT, PRIMARY KEY (id))")
 
 
+class DeleteTests(unittest.TestCase):
+    def test_delete_with_where(self):
+        from tinysql.parser import Delete
+
+        self.assertEqual(
+            parse("DELETE FROM t WHERE id = 3"),
+            Delete("t", Compare("=", Column("id"), Literal(3))),
+        )
+
+    def test_delete_without_where_is_rejected(self):
+        with self.assertRaises(ParseError):
+            parse("DELETE t")
+
+
 if __name__ == "__main__":
     unittest.main()

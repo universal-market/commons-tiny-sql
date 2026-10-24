@@ -82,5 +82,20 @@ class CreateTableExecutorTests(unittest.TestCase):
             db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
 
 
+class DeleteExecutorTests(unittest.TestCase):
+    def test_delete_matching_rows_returns_count(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        for sql in ("INSERT INTO users VALUES (1, 'al', 2.0)",
+                    "INSERT INTO users VALUES (2, 'bo', 3.0)",
+                    "INSERT INTO users VALUES (3, 'cy', 4.0)"):
+            ex.run(parse(sql))
+        self.assertEqual(ex.run(parse("DELETE FROM users WHERE id = 2")), 1)
+        self.assertEqual(ex.run(parse("SELECT id FROM users")), [{"id": 1}, {"id": 3}])
+        self.assertEqual(ex.run(parse("DELETE FROM users WHERE score > 100")), 0)
+
+
 if __name__ == "__main__":
     unittest.main()
