@@ -253,7 +253,7 @@ class ExecutorTests(unittest.TestCase):
 
     def test_join_rejects_ambiguous_column_names(self):
         db = make_join_db()
-        db.run(parse("CREATE TABLE extra (id INT PRIMARY KEY)"))
+        db.tables["extra"] = Table("extra", [Column("id", int)], primary_key="id")
         with self.assertRaises(ExecError):
             self.run_sql(db, "SELECT name FROM users JOIN extra ON id = id")
 
