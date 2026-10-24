@@ -46,6 +46,18 @@ class PagedTreeTest(unittest.TestCase):
         self.assertEqual(loaded.get(100), 100)
 
 
+    def test_split_tree_persisted_after_deletes_reloads(self):
+        tree = BTree(order=2)
+        for k in range(60):
+            tree.insert(k, f"row{k}")
+        for k in range(0, 60, 3):
+            tree.delete(k)
+        write_tree(tree, self.path)
+        loaded = read_tree(self.path)
+        expected = [(k, f"row{k}") for k in range(60) if k % 3]
+        self.assertEqual(list(loaded.items()), expected)
+        self.assertEqual(len(loaded), len(expected))
+
 class PagedDatabaseTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
