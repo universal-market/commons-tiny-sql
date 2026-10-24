@@ -87,6 +87,16 @@ class PagedTreeTest(unittest.TestCase):
         self.assertEqual(len(rows), 40)
         self.assertEqual(rows[3], (3, {"id": 3, "name": "zz"}))
 
+    def test_select_runs_on_reloaded_database(self):
+        users = Table("users", [Column("id", int), Column("name", str)], primary_key="id")
+        db = Executor({"users": users})
+        for i in range(30):
+            db.run(parse(f"INSERT INTO users VALUES ({i}, 'n{i}')"))
+        write_database(db.tables, self.path)
+        reloaded = Executor(read_database(self.path))
+        rows = reloaded.run(parse("SELECT name FROM users WHERE id > 27 ORDER BY id"))
+        self.assertEqual(rows, [{"name": "n28"}, {"name": "n29"}])
+
 class PagedDatabaseTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()
