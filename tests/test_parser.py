@@ -79,6 +79,13 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t ORDER BY a ASC")
         self.assertEqual((stmt.order_by, stmt.order_desc), (("a",), False))
 
+    def test_where_not_between(self):
+        stmt = parse("SELECT * FROM t WHERE a NOT BETWEEN 1 AND 3")
+        self.assertEqual(
+            stmt.where,
+            Not(And(Compare(">=", Column("a"), Literal(1)), Compare("<=", Column("a"), Literal(3)))),
+        )
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))

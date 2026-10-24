@@ -319,6 +319,12 @@ class _Parser:
             return Not(self.not_expr())
         return self.comparison()
 
+    def between(self, left):
+        low = self.operand()
+        self.expect("AND")
+        high = self.operand()
+        return And(Compare(">=", left, low), Compare("<=", left, high))
+
     def in_list(self, left):
         self.expect("LPAREN")
         items = [self.operand()]
@@ -334,11 +340,10 @@ class _Parser:
             self.expect("NULL")
             return Not(IsNull(left)) if negated else IsNull(left)
         if self.accept("BETWEEN"):
-            low = self.operand()
-            self.expect("AND")
-            high = self.operand()
-            return And(Compare(">=", left, low), Compare("<=", left, high))
+            return self.between(left)
         if self.accept("NOT"):
+            if self.accept("BETWEEN"):
+                return Not(self.between(left))
             self.expect("IN")
             return Not(self.in_list(left))
         if self.accept("IN"):
