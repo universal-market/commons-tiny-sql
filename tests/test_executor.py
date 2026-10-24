@@ -115,6 +115,13 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT DISTINCT name FROM users")
         self.assertEqual(rows, [{"name": "a"}, {"name": "b"}])
 
+    def test_where_between(self):
+        db = make_db()
+        for i in (1, 2, 3, 4):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id BETWEEN 2 AND 3")
+        self.assertEqual(rows, [{"id": 2}, {"id": 3}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

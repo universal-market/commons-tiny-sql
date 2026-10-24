@@ -64,6 +64,13 @@ class SelectTests(unittest.TestCase):
         self.assertTrue(stmt.distinct)
         self.assertEqual(stmt.columns, ("a",))
 
+    def test_where_between(self):
+        stmt = parse("SELECT * FROM t WHERE a BETWEEN 1 AND 3")
+        self.assertEqual(
+            stmt.where,
+            And(Compare(">=", Column("a"), Literal(1)), Compare("<=", Column("a"), Literal(3))),
+        )
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))

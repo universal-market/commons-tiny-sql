@@ -320,6 +320,11 @@ class _Parser:
             negated = bool(self.accept("NOT"))
             self.expect("NULL")
             return Not(IsNull(left)) if negated else IsNull(left)
+        if self.accept("BETWEEN"):
+            low = self.operand()
+            self.expect("AND")
+            high = self.operand()
+            return And(Compare(">=", left, low), Compare("<=", left, high))
         if self.accept("IN"):
             self.expect("LPAREN")
             items = [self.operand()]
