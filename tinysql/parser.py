@@ -99,6 +99,13 @@ class Select:
     offset: int = 0
     distinct: bool = False
     having: Optional[Expr] = None
+    join: Optional["Join"] = None
+
+
+@dataclass(frozen=True)
+class Join:
+    table: str
+    on: Expr
 
 
 @dataclass(frozen=True)
@@ -218,6 +225,11 @@ class _Parser:
             columns = self.select_list()
         self.expect("FROM")
         table = self.expect("IDENT").value
+        join = None
+        if self.accept("JOIN"):
+            join_table = self.expect("IDENT").value
+            self.expect("ON")
+            join = Join(join_table, self.comparison())
         where = self.expr() if self.accept("WHERE") else None
         group_by = None
         if self.accept("GROUP"):
@@ -243,7 +255,7 @@ class _Parser:
             offset = self.expect("NUMBER").value
             if not isinstance(offset, int):
                 raise ParseError("OFFSET takes an integer")
-        return Select(columns, table, where, group_by, order_by, order_desc, limit, offset, distinct, having)
+        return Select(columns, table, where, group_by, order_by, order_desc, limit, offset, distinct, having, join)
 
     def update(self):
         table = self.expect("IDENT").value

@@ -155,6 +155,11 @@ class SelectTests(unittest.TestCase):
         self.assertEqual(stmt.where.left.op, "+")
         self.assertEqual(stmt.where.left.right.op, "%")
 
+    def test_inner_join_on_equality(self):
+        stmt = parse("SELECT name FROM users JOIN orders ON id = user_id")
+        self.assertEqual(stmt.join.table, "orders")
+        self.assertEqual(stmt.join.on.op, "=")
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))
