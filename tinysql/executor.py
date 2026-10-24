@@ -137,7 +137,21 @@ class Executor:
         rows = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
         for name in reversed(stmt.order_by or ()):
             rows.sort(key=lambda r: (r[name] is not None, r[name]), reverse=stmt.order_desc)
+        if stmt.group_by:
+            for name in names:
+                if name not in stmt.group_by:
+                    raise ExecError(f"column {name!r} must appear in GROUP BY")
         projected = [{out: r[src] for src, out in items} for r in rows]
+        if stmt.group_by:
+            # One row per group: keep the first row seen for each group key.
+            seen_groups = set()
+            grouped = []
+            for r, p in zip(rows, projected):
+                key = tuple(r[g] for g in stmt.group_by)
+                if key not in seen_groups:
+                    seen_groups.add(key)
+                    grouped.append(p)
+            projected = grouped
         if stmt.distinct:
             seen = set()
             unique = []

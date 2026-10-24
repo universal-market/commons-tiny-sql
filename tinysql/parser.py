@@ -85,6 +85,7 @@ class Select:
     columns: Optional[Tuple[str, ...]]  # None means '*'
     table: str
     where: Optional[Expr] = None
+    group_by: Optional[Tuple[str, ...]] = None
     order_by: Optional[Tuple[str, ...]] = None
     order_desc: bool = False
     limit: Optional[int] = None
@@ -210,6 +211,10 @@ class _Parser:
         self.expect("FROM")
         table = self.expect("IDENT").value
         where = self.expr() if self.accept("WHERE") else None
+        group_by = None
+        if self.accept("GROUP"):
+            self.expect("BY")
+            group_by = self.ident_list()
         order_by = None
         order_desc = False
         if self.accept("ORDER"):
@@ -229,7 +234,7 @@ class _Parser:
             offset = self.expect("NUMBER").value
             if not isinstance(offset, int):
                 raise ParseError("OFFSET takes an integer")
-        return Select(columns, table, where, order_by, order_desc, limit, offset, distinct)
+        return Select(columns, table, where, group_by, order_by, order_desc, limit, offset, distinct)
 
     def update(self):
         table = self.expect("IDENT").value
