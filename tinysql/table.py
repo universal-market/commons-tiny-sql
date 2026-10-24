@@ -29,6 +29,7 @@ class Table:
         self.primary_key = primary_key
         self._by_name = {c.name: c for c in columns}
         self._rows = BTree(order=8)  # primary key -> row dict
+        self._indexes: Dict[str, Dict[Any, set]] = {}  # column -> value -> primary keys
 
     def insert(self, row: Dict[str, Any]) -> None:
         """Insert one row given as {column: value}. Missing columns become NULL."""
@@ -44,11 +45,14 @@ class Table:
         if key in self._rows:
             raise TableError(f"duplicate primary key {key!r}")
         self._rows.insert(key, clean)
+        for column, index in self._indexes.items():
+            index.setdefault(clean[column], set()).add(key)
 
     def delete_where(self, keep_out) -> int:
         """Delete every row for which ``keep_out(row)`` is true; return how many."""
         doomed = [row[self.primary_key] for row in self.scan() if keep_out(row)]
         for key in doomed:
+            self._unindex(self._rows.get(key), key)
             self._rows.delete(key)
         return len(doomed)
 
@@ -64,9 +68,42 @@ class Table:
         self._check(self._by_name[column], value)
         hits = [row for row in self.scan() if match(row)]
         for row in hits:
+            key = row[self.primary_key]
+            self._unindex(row, key)
             row[column] = value
-            self._rows.insert(row[self.primary_key], row)
+            self._rows.insert(key, row)
+            for col, index in self._indexes.items():
+                index.setdefault(row[col], set()).add(key)
         return len(hits)
+
+    def create_index(self, column: str) -> None:
+        """Index ``column`` so that ``lookup`` does not scan every row."""
+        if column not in self._by_name:
+            raise TableError(f"unknown column {column!r}")
+        if column == self.primary_key or column in self._indexes:
+            raise TableError(f"column {column!r} cannot be indexed")
+        index: Dict[Any, set] = {}
+        for key, row in self._rows.items():
+            index.setdefault(row[column], set()).add(key)
+        self._indexes[column] = index
+
+    def lookup(self, column: str, value: Any) -> Iterator[Dict[str, Any]]:
+        """Yield copies of rows where ``column`` equals ``value``, in primary-key order.
+
+        Uses the index on ``column``; the column must have one (see ``create_index``).
+        """
+        if column not in self._indexes:
+            raise TableError(f"no index on column {column!r}")
+        for key in sorted(self._indexes[column].get(value, ())):
+            yield dict(self._rows.get(key))
+
+    def _unindex(self, row: Dict[str, Any], key: Any) -> None:
+        for column, index in self._indexes.items():
+            keys = index.get(row[column])
+            if keys is not None:
+                keys.discard(key)
+                if not keys:
+                    del index[row[column]]
 
     def get(self, key: Any) -> Optional[Dict[str, Any]]:
         row = self._rows.get(key)

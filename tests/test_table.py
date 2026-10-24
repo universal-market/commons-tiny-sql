@@ -96,5 +96,33 @@ class TableTests(unittest.TestCase):
         self.assertEqual(t.get(321), {"id": 321, "name": "321", "score": None})
 
 
+    def test_index_lookup_follows_insert_update_delete(self):
+        t = make_table()
+        t.insert({"id": 1, "name": "ann"})
+        t.insert({"id": 2, "name": "bob"})
+        t.insert({"id": 3, "name": "ann"})
+        t.create_index("name")
+        self.assertEqual([r["id"] for r in t.lookup("name", "ann")], [1, 3])
+        t.insert({"id": 4, "name": "ann"})
+        self.assertEqual([r["id"] for r in t.lookup("name", "ann")], [1, 3, 4])
+        t.update_where(lambda r: r["id"] == 1, "name", "cy")
+        self.assertEqual([r["id"] for r in t.lookup("name", "ann")], [3, 4])
+        self.assertEqual([r["id"] for r in t.lookup("name", "cy")], [1])
+        t.delete_where(lambda r: r["id"] == 3)
+        self.assertEqual([r["id"] for r in t.lookup("name", "ann")], [4])
+        self.assertEqual(list(t.lookup("name", "zed")), [])
+
+    def test_index_errors(self):
+        t = make_table()
+        with self.assertRaises(TableError):
+            list(t.lookup("name", "ann"))
+        with self.assertRaises(TableError):
+            t.create_index("nope")
+        with self.assertRaises(TableError):
+            t.create_index("id")
+        t.create_index("name")
+        with self.assertRaises(TableError):
+            t.create_index("name")
+
 if __name__ == "__main__":
     unittest.main()
