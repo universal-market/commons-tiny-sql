@@ -126,6 +126,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT a FROM t WHERE a + 1 = 3")
         self.assertEqual(stmt.where.left.op, "+")
 
+    def test_subtraction_in_where(self):
+        stmt = parse("SELECT a FROM t WHERE a - 1 = 3")
+        self.assertEqual(stmt.where.left.op, "-")
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))

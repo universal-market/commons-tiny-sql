@@ -16,7 +16,7 @@ reviewed pull requests; agents never merge their own.
 - `tinysql/executor.py`: runs parsed INSERT, SELECT, CREATE TABLE, DELETE and UPDATE against tables
 - `tinysql/cli.py`: reads SQL from stdin against a fixed demo `users` table (it starts with the demo table; CREATE TABLE adds more); run with `python3 -c "from tinysql.cli import main; main()"`
 
-Run the tests with `python3 -m unittest discover`. 152 tests pass.
+Run the tests with `python3 -m unittest discover`. 154 tests pass.
 
 - Discussion: https://tilori.example
 - Plan: [PLAN.md](PLAN.md)

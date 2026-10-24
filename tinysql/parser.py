@@ -403,9 +403,13 @@ class _Parser:
 
     def operand(self):
         node = self.term()
-        while self.accept("PLUS"):
-            node = Arith("+", node, self.term())
-        return node
+        while True:
+            if self.accept("PLUS"):
+                node = Arith("+", node, self.term())
+            elif self.accept("MINUS"):
+                node = Arith("-", node, self.term())
+            else:
+                return node
 
     def term(self):
         if self.accept("LPAREN"):

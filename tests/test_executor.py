@@ -298,6 +298,15 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = ex.run(parse("SELECT id FROM users WHERE id + 1 = 10"))
         self.assertEqual(rows, [{"id": 9}])
 
+    def test_where_subtraction(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT id FROM users WHERE id - 1 = 8"))
+        self.assertEqual(rows, [{"id": 9}])
+
     def test_group_by_rejects_ungrouped_column(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse
