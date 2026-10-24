@@ -58,6 +58,20 @@ class PagedTreeTest(unittest.TestCase):
         self.assertEqual(list(loaded.items()), expected)
         self.assertEqual(len(loaded), len(expected))
 
+    def test_resave_updates_file_in_place(self):
+        tree = BTree(order=2)
+        for k in range(120):
+            tree.insert(k, k)
+        write_tree(tree, self.path)
+        before = open(self.path, "rb").read()
+        write_tree(tree, self.path)
+        self.assertEqual(open(self.path, "rb").read(), before)
+        for k in range(0, 120, 2):
+            tree.delete(k)
+        write_tree(tree, self.path)
+        self.assertLess(os.path.getsize(self.path), len(before))
+        self.assertEqual(list(read_tree(self.path).items()), list(tree.items()))
+
 class PagedDatabaseTest(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.TemporaryDirectory()

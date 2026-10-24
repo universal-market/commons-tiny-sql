@@ -77,6 +77,13 @@ class Pager:
         self._write_header()
         self._file.flush()
 
+    def truncate_pages(self, page_count: int) -> None:
+        """Drop every page at or after page_count."""
+        self.page_count = page_count
+        self._file.truncate(page_count * PAGE_SIZE)
+        self._write_header()
+        self._file.flush()
+
     def set_root(self, page_id: int) -> None:
         self.root = page_id
         self._write_header()

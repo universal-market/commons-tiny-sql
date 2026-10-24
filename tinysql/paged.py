@@ -2,23 +2,37 @@
 
 Layout: page 1 holds the root. The other nodes are written before their
 parent, so children get lower page ids. Page 0 is the Pager header.
-Each save rewrites the whole file; nothing is updated in place yet.
+A save into an existing file of the same order updates it in place: a
+page whose bytes are unchanged is not written, and pages past the new end
+of the tree are truncated.
 """
 
 import json
 import os
 
 from .btree import BTree, _Node
-from .pager import Pager, decode_node, encode_node
+from .pager import PAGE_SIZE, Pager, decode_node, encode_node
 
 ROOT_PAGE = 1
 
 
 def write_tree(tree: BTree, path: str) -> None:
-    if os.path.exists(path):
-        os.remove(path)  # rewrite from scratch so old pages do not pile up
+    if os.path.exists(path) and _file_order(path) != tree.order:
+        os.remove(path)  # a different order cannot be updated in place
+    pages = []
+    _collect(tree._root, ROOT_PAGE, [ROOT_PAGE + 1], pages)
     with Pager(path, order=tree.order) as pager:
-        _write_node(pager, tree._root, ROOT_PAGE)
+        for page_id, data in sorted(pages):  # ids are dense, so this is in order
+            if page_id < pager.page_count and pager.read_page(page_id) == data.ljust(PAGE_SIZE, b"\0"):
+                continue
+            pager.write_page(page_id, data)
+        if pager.page_count > len(pages) + 1:
+            pager.truncate_pages(len(pages) + 1)
+
+
+def _file_order(path: str) -> int:
+    with Pager(path) as pager:
+        return pager.order
 
 
 def read_tree(path: str) -> BTree:
@@ -39,12 +53,27 @@ def root_items(node: _Node):
         yield from root_items(node.children[-1])
 
 
-def _write_node(pager: Pager, node: _Node, page_id: int = None) -> int:
-    child_ids = [] if node.leaf else [_write_node(pager, c) for c in node.children]
-    if page_id is None:
-        page_id = pager.page_count
-    pager.write_page(page_id, encode_node(node.leaf, node.keys, node.values, child_ids))
-    return page_id
+def _collect(node: _Node, page_id: int, next_free: list, out: list) -> None:
+    """Assign page ids in pre-order, so an unchanged tree gets the same ids and bytes."""
+    child_ids = []
+    if not node.leaf:
+        for _ in node.children:
+            child_ids.append(next_free[0])
+            next_free[0] += 1
+    out.append((page_id, encode_node(node.leaf, node.keys, node.values, child_ids)))
+    if not node.leaf:
+        for child_id, child in zip(child_ids, node.children):
+            _collect(child, child_id, next_free, out)
+
+
+def _write_subtree(pager: Pager, node: _Node) -> int:
+    """Append a subtree's pages to the end of the file and return its root page id."""
+    root_id = pager.page_count
+    pages = []
+    _collect(node, root_id, [root_id + 1], pages)
+    for page_id, data in pages:
+        pager.write_page(page_id, data)
+    return root_id
 
 
 def _read_node(pager: Pager, page_id: int) -> _Node:
@@ -68,7 +97,7 @@ def write_database(tables: dict, path: str) -> None:
     with Pager(path, order=8) as pager:
         catalog = {}
         for name, table in tables.items():
-            root = _write_node(pager, table._rows._root)
+            root = _write_subtree(pager, table._rows._root)
             catalog[name] = {
                 "root": root,
                 "primary_key": table.primary_key,
