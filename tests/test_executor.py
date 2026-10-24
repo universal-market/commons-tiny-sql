@@ -77,6 +77,14 @@ class ExecutorTests(unittest.TestCase):
         self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a'), (2, 'b')")
         self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
 
+    def test_delete_and_update_missing_table_raise(self):
+        from tinysql.parser import parse
+
+        db = make_db()
+        for sql in ("DELETE FROM nope WHERE id = 1", "UPDATE nope SET name = 'x' WHERE id = 1"):
+            with self.assertRaises(ExecError):
+                self.run_sql(db, sql)
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
