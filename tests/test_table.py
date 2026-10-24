@@ -83,6 +83,18 @@ class TableTests(unittest.TestCase):
         with self.assertRaisesRegex(TableError, "is not a column"):
             Table("t", [Column("id", int)], primary_key="nope")
 
+    def test_many_rows_stay_ordered_on_btree(self):
+        import random
+
+        t = make_table()
+        keys = list(range(500))
+        random.Random(1).shuffle(keys)
+        for k in keys:
+            t.insert({"id": k, "name": str(k)})
+        self.assertEqual(len(t), 500)
+        self.assertEqual([r["id"] for r in t.scan()], list(range(500)))
+        self.assertEqual(t.get(321), {"id": 321, "name": "321", "score": None})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -3,6 +3,8 @@
 from dataclasses import dataclass
 from typing import Any, Dict, Iterator, Optional, Sequence, Tuple
 
+from tinysql.btree import BTree
+
 
 class TableError(ValueError):
     """Raised for schema, type and key violations."""
@@ -26,7 +28,7 @@ class Table:
         self.columns: Tuple[Column, ...] = tuple(columns)
         self.primary_key = primary_key
         self._by_name = {c.name: c for c in columns}
-        self._rows: Dict[Any, Dict[str, Any]] = {}
+        self._rows = BTree(order=8)  # primary key -> row dict
 
     def insert(self, row: Dict[str, Any]) -> None:
         """Insert one row given as {column: value}. Missing columns become NULL."""
@@ -41,7 +43,7 @@ class Table:
         key = clean[self.primary_key]
         if key in self._rows:
             raise TableError(f"duplicate primary key {key!r}")
-        self._rows[key] = clean
+        self._rows.insert(key, clean)
 
     def get(self, key: Any) -> Optional[Dict[str, Any]]:
         row = self._rows.get(key)
@@ -49,8 +51,8 @@ class Table:
 
     def scan(self) -> Iterator[Dict[str, Any]]:
         """Yield copies of all rows in primary-key order."""
-        for key in sorted(self._rows):
-            yield dict(self._rows[key])
+        for _, row in self._rows.items():
+            yield dict(row)
 
     def __len__(self) -> int:
         return len(self._rows)
