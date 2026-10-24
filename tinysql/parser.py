@@ -352,6 +352,8 @@ class _Parser:
         if self.accept("NOT"):
             if self.accept("BETWEEN"):
                 return Not(self.between(left))
+            if self.accept("LIKE"):
+                return Not(Like(left, self.operand()))
             self.expect("IN")
             return Not(self.in_list(left))
         if self.accept("IN"):

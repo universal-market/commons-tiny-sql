@@ -90,6 +90,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t WHERE a LIKE 'ab%'")
         self.assertEqual(stmt.where, Like(Column("a"), Literal("ab%")))
 
+    def test_where_not_like(self):
+        stmt = parse("SELECT * FROM t WHERE a NOT LIKE 'ab%'")
+        self.assertEqual(stmt.where, Not(Like(Column("a"), Literal("ab%"))))
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))
