@@ -11,7 +11,7 @@ from typing import Any, List, Optional, TextIO
 
 from tinysql.executor import ExecError, Executor
 from tinysql.paged import read_database, write_database
-from tinysql.parser import ParseError, parse
+from tinysql.parser import Delete, ParseError, parse
 from tinysql.table import Column, Table, TableError
 from tinysql.tokenizer import TokenizeError
 
@@ -34,9 +34,9 @@ def save_database(executor: Executor, db_path: str) -> None:
     write_database(executor.tables, db_path)
 
 
-def format_result(result: Any) -> str:
+def format_result(result: Any, verb: str = "inserted") -> str:
     if isinstance(result, int):
-        return f"{result} row(s) inserted"
+        return f"{result} row(s) {verb}"
     rows: List[dict] = result
     if not rows:
         return "(0 rows)"
@@ -53,7 +53,9 @@ def format_result(result: Any) -> str:
 def run_line(executor: Executor, line: str) -> str:
     """Run one statement and return its printable output. Errors are returned, not raised."""
     try:
-        return format_result(executor.run(parse(line)))
+        stmt = parse(line)
+        verb = "deleted" if isinstance(stmt, Delete) else "inserted"
+        return format_result(executor.run(stmt), verb)
     except (ParseError, TokenizeError, ExecError, TableError) as exc:
         return f"error: {exc}"
 
