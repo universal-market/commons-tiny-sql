@@ -79,7 +79,7 @@ class Select:
     columns: Optional[Tuple[str, ...]]  # None means '*'
     table: str
     where: Optional[Expr] = None
-    order_by: Optional[str] = None
+    order_by: Optional[Tuple[str, ...]] = None
     order_desc: bool = False
     limit: Optional[int] = None
     offset: int = 0
@@ -200,7 +200,10 @@ class _Parser:
         order_desc = False
         if self.accept("ORDER"):
             self.expect("BY")
-            order_by = self.expect("IDENT").value
+            order_by = [self.expect("IDENT").value]
+            while self.accept("COMMA"):
+                order_by.append(self.expect("IDENT").value)
+            order_by = tuple(order_by)
             order_desc = bool(self.accept("DESC"))
         limit = self.expect("NUMBER").value if self.accept("LIMIT") else None
         if limit is not None and not isinstance(limit, int):

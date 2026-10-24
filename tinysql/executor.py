@@ -99,16 +99,13 @@ class Executor:
             matched = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
             return [{"COUNT(*)": len(matched)}]
         names = stmt.columns or tuple(all_names)
-        for name in list(names) + ([stmt.order_by] if stmt.order_by else []):
+        for name in list(names) + list(stmt.order_by or ()):
             if name not in all_names:
                 raise ExecError(f"no such column {name!r}")
 
         rows = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
-        if stmt.order_by:
-            rows.sort(
-                key=lambda r: (r[stmt.order_by] is not None, r[stmt.order_by]),
-                reverse=stmt.order_desc,
-            )
+        for name in reversed(stmt.order_by or ()):
+            rows.sort(key=lambda r: (r[name] is not None, r[name]), reverse=stmt.order_desc)
         projected = [{n: r[n] for n in names} for r in rows]
         if stmt.distinct:
             seen = set()

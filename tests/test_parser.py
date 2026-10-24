@@ -37,7 +37,7 @@ class SelectTests(unittest.TestCase):
 
     def test_order_and_limit(self):
         stmt = parse("SELECT * FROM t ORDER BY a LIMIT 5;")
-        self.assertEqual((stmt.order_by, stmt.limit), ("a", 5))
+        self.assertEqual((stmt.order_by, stmt.limit), (("a",), 5))
 
     def test_limit_with_offset(self):
         stmt = parse("SELECT * FROM t LIMIT 2 OFFSET 3")
@@ -77,7 +77,7 @@ class SelectTests(unittest.TestCase):
 
     def test_order_by_desc(self):
         stmt = parse("SELECT * FROM t ORDER BY a DESC")
-        self.assertEqual((stmt.order_by, stmt.order_desc), ("a", True))
+        self.assertEqual((stmt.order_by, stmt.order_desc), (("a",), True))
 
     def test_order_by_default_is_ascending(self):
         stmt = parse("SELECT * FROM t ORDER BY a")

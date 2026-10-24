@@ -57,6 +57,14 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users ORDER BY score")
         self.assertEqual(rows, [{"id": 2}, {"id": 1}])
 
+    def test_order_by_two_columns(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'b', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'a', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (3, 'a', 1.0)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY score, name")
+        self.assertEqual(rows, [{"id": 3}, {"id": 2}, {"id": 1}])
+
     def test_order_by_desc_puts_nulls_last(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 2.0)")
