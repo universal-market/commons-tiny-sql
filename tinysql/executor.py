@@ -91,7 +91,10 @@ class Executor:
 
         rows = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
         if stmt.order_by:
-            rows.sort(key=lambda r: (r[stmt.order_by] is not None, r[stmt.order_by]))
+            rows.sort(
+                key=lambda r: (r[stmt.order_by] is not None, r[stmt.order_by]),
+                reverse=stmt.order_desc,
+            )
         if stmt.limit is not None:
             rows = rows[: stmt.limit]
         return [{n: r[n] for n in names} for r in rows]

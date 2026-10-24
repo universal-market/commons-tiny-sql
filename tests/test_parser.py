@@ -39,6 +39,14 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t ORDER BY a LIMIT 5;")
         self.assertEqual((stmt.order_by, stmt.limit), ("a", 5))
 
+    def test_order_by_desc(self):
+        stmt = parse("SELECT * FROM t ORDER BY a DESC")
+        self.assertEqual((stmt.order_by, stmt.order_desc), ("a", True))
+
+    def test_order_by_default_is_ascending(self):
+        stmt = parse("SELECT * FROM t ORDER BY a")
+        self.assertFalse(stmt.order_desc)
+
     def test_limit_must_be_integer(self):
         with self.assertRaises(ParseError):
             parse("SELECT * FROM t LIMIT 2.5")
