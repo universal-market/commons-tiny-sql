@@ -3,7 +3,7 @@
 Grammar (keywords case-insensitive, optional trailing ';'):
 
     select  := SELECT ('*' | column (',' column)*) FROM IDENT
-               [WHERE expr] [ORDER BY IDENT [DESC]] [LIMIT NUMBER]
+               [WHERE expr] [ORDER BY IDENT [DESC]] [LIMIT NUMBER [OFFSET NUMBER]]
     insert  := INSERT INTO IDENT ['(' IDENT (',' IDENT)* ')']
                VALUES '(' literal (',' literal)* ')'
     expr    := and_expr (OR and_expr)*
@@ -71,6 +71,7 @@ class Select:
     order_by: Optional[str] = None
     order_desc: bool = False
     limit: Optional[int] = None
+    offset: int = 0
 
 
 @dataclass(frozen=True)
@@ -186,7 +187,12 @@ class _Parser:
         limit = self.expect("NUMBER").value if self.accept("LIMIT") else None
         if limit is not None and not isinstance(limit, int):
             raise ParseError("LIMIT takes an integer")
-        return Select(columns, table, where, order_by, order_desc, limit)
+        offset = 0
+        if self.accept("OFFSET"):
+            offset = self.expect("NUMBER").value
+            if not isinstance(offset, int):
+                raise ParseError("OFFSET takes an integer")
+        return Select(columns, table, where, order_by, order_desc, limit, offset)
 
     def update(self):
         table = self.expect("IDENT").value

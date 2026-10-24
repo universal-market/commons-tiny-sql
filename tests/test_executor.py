@@ -65,6 +65,13 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users ORDER BY score DESC")
         self.assertEqual(rows, [{"id": 3}, {"id": 1}, {"id": 2}])
 
+    def test_limit_with_offset(self):
+        db = make_db()
+        for i in range(1, 5):
+            self.run_sql(db, f"INSERT INTO users VALUES ({i}, 'u{i}', 1.0)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY id LIMIT 2 OFFSET 1")
+        self.assertEqual(rows, [{"id": 2}, {"id": 3}])
+
     def test_errors(self):
         db = make_db()
         with self.assertRaisesRegex(ExecError, "no such table"):

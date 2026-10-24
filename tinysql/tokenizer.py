@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 KEYWORDS = frozenset({
     "SELECT", "FROM", "WHERE", "INSERT", "INTO", "VALUES", "AND", "OR", "NOT",
-    "NULL", "ORDER", "BY", "DESC", "LIMIT", "CREATE", "DROP", "TABLE", "PRIMARY", "KEY", "DELETE", "UPDATE", "SET",
+    "NULL", "ORDER", "BY", "DESC", "LIMIT", "OFFSET", "CREATE", "DROP", "TABLE", "PRIMARY", "KEY", "DELETE", "UPDATE", "SET",
 })
 
 SYMBOLS = {

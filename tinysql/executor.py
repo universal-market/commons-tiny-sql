@@ -102,6 +102,7 @@ class Executor:
                 key=lambda r: (r[stmt.order_by] is not None, r[stmt.order_by]),
                 reverse=stmt.order_desc,
             )
+        rows = rows[stmt.offset:]
         if stmt.limit is not None:
             rows = rows[: stmt.limit]
         return [{n: r[n] for n in names} for r in rows]
