@@ -87,6 +87,9 @@ class Table:
             index.setdefault(row[column], set()).add(key)
         self._indexes[column] = index
 
+    def has_index(self, column: str) -> bool:
+        return column in self._indexes
+
     def lookup(self, column: str, value: Any) -> Iterator[Dict[str, Any]]:
         """Yield copies of rows where ``column`` equals ``value``, in primary-key order.
 

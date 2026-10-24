@@ -10,7 +10,7 @@ and WHERE keeps a row only when its condition is TRUE.
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from tinysql.parser import And, Arith, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Like, Literal, Not, Or, Select, Update
+from tinysql.parser import And, Arith, Column, Compare, CreateIndex, CreateTable, Delete, DropTable, InList, Insert, IsNull, Like, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
 
 PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
@@ -54,6 +54,8 @@ class Executor:
             return self._select(stmt)
         if isinstance(stmt, CreateTable):
             return self._create(stmt)
+        if isinstance(stmt, CreateIndex):
+            return self._create_index(stmt)
         if isinstance(stmt, DropTable):
             return self._drop(stmt)
         if isinstance(stmt, Delete):
@@ -70,6 +72,14 @@ class Executor:
         columns = [TableColumn(c.name, PY_TYPES[c.type_name], c.nullable) for c in stmt.columns]
         try:
             self.tables[stmt.table] = Table(stmt.table, columns, stmt.primary_key)
+        except TableError as exc:
+            raise ExecError(str(exc)) from exc
+        return 0
+
+    def _create_index(self, stmt: CreateIndex) -> int:
+        table = self._table(stmt.table)
+        try:
+            table.create_index(stmt.column)
         except TableError as exc:
             raise ExecError(str(exc)) from exc
         return 0
@@ -126,10 +136,22 @@ class Executor:
                     rows.append(merged)
         return left_names + right_names, rows
 
+    @staticmethod
+    def _indexed_equality(table: Table, where) -> Optional[Tuple[str, Any]]:
+        """(column, value) when WHERE is `indexed_column = literal`, else None."""
+        if (isinstance(where, Compare) and where.op == "=" and isinstance(where.left, Column)
+                and isinstance(where.right, Literal) and table.has_index(where.left.name)):
+            return where.left.name, where.right.value
+        return None
+
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
         source = table.scan
+        indexed = self._indexed_equality(table, stmt.where)
+        if indexed is not None:
+            # The WHERE filter below still runs, so the index only narrows the scan.
+            source = lambda: table.lookup(*indexed)
         if stmt.join is not None:
             all_names, joined = self._joined_rows(stmt)
             source = lambda: iter(joined)

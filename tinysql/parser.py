@@ -4,6 +4,7 @@ Grammar (keywords case-insensitive, optional trailing ';'):
 
     select  := SELECT ('*' | column (',' column)*) FROM IDENT
                [WHERE expr] [ORDER BY IDENT [DESC]] [LIMIT NUMBER [OFFSET NUMBER]]
+    create_index := CREATE INDEX ON IDENT '(' IDENT ')'
     insert  := INSERT INTO IDENT ['(' IDENT (',' IDENT)* ')']
                VALUES '(' literal (',' literal)* ')'
     expr    := and_expr (OR and_expr)*
@@ -143,6 +144,12 @@ class DropTable:
 
 
 @dataclass(frozen=True)
+class CreateIndex:
+    table: str
+    column: str
+
+
+@dataclass(frozen=True)
 class CreateTable:
     table: str
     columns: Tuple[ColumnDef, ...]
@@ -150,7 +157,7 @@ class CreateTable:
     if_not_exists: bool = False
 
 
-Statement = Union[Select, Insert, CreateTable, DropTable, Delete, Update]
+Statement = Union[Select, Insert, CreateTable, CreateIndex, DropTable, Delete, Update]
 
 COLUMN_TYPES = frozenset({"INT", "FLOAT", "TEXT", "BOOL"})
 
@@ -191,7 +198,7 @@ class _Parser:
         elif self.accept("INSERT"):
             stmt = self.insert()
         elif self.accept("CREATE"):
-            stmt = self.create_table()
+            stmt = self.create_index() if self.accept("INDEX") else self.create_table()
         elif self.accept("DROP"):
             self.expect("TABLE")
             if_exists = bool(self.accept("IF"))
@@ -321,6 +328,15 @@ class _Parser:
         if primary_key not in names:
             raise ParseError(f"PRIMARY KEY names unknown column {primary_key!r}")
         return CreateTable(table, tuple(columns), primary_key, if_not_exists)
+
+    def create_index(self):
+        # Grammar: CREATE INDEX ON table '(' column ')'  (no index name: none is stored)
+        self.expect("ON")
+        table = self.expect("IDENT").value
+        self.expect("LPAREN")
+        column = self.expect("IDENT").value
+        self.expect("RPAREN")
+        return CreateIndex(table, column)
 
     def column_def(self):
         name = self.expect("IDENT").value

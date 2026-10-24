@@ -429,5 +429,33 @@ class DropTableExecutorTests(unittest.TestCase):
             ex.run(parse("DROP TABLE users"))
 
 
+    def test_create_index_then_table_lookup(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        self.assertEqual([r["id"] for r in db.tables["t"].lookup("name", "bob")], [2])
+        db.run(parse("INSERT INTO t VALUES (3, 'bob')"))
+        self.assertEqual([r["id"] for r in db.tables["t"].lookup("name", "bob")], [2, 3])
+
+    def test_create_index_errors(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON nope (id)"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON t (nope)"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON t (id)"))
+
+    def test_select_equality_uses_index_and_keeps_filter(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob'), (3, 'bob')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'bob' AND id > 2"))
+        self.assertEqual(rows, [{"id": 3}])
+        self.assertEqual(db.run(parse("SELECT id FROM t WHERE name = 'zed'")), [])
+
 if __name__ == "__main__":
     unittest.main()
