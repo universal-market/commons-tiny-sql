@@ -1,6 +1,4 @@
-"""Page-based storage design for the B-tree (milestone 10, design only).
-
-Status: design only. No reader or writer exists yet.
+"""Page-based storage for the B-tree (milestone 10).
 
 File layout
 -----------
@@ -14,26 +12,85 @@ Page 0 is the header:
     12      4     root page id
     16      4     page count (pages in use, including the header)
 
-Node pages (all other pages):
-    offset  size  field
-    0       1     flags: 1 = leaf, 0 = internal
-    1       2     key count n (unsigned, big-endian)
-    3       ...   n entries, each:
-                    2 bytes  key length k
-                    k bytes  key, JSON-encoded UTF-8
-                    2 bytes  value length v
-                    v bytes  value, JSON-encoded UTF-8
-    after entries, internal nodes only: n + 1 child page ids (4 bytes each)
-
-A node must fit in one page. With order m, a node holds at most 2m - 1 keys.
-Values larger than the remaining page space are an error in this milestone
-(no overflow pages), so the design caps row size at roughly 4096 / (2m - 1)
-bytes per entry minus the child-id overhead.
+Node pages (all other pages): node encoding is not implemented yet.
 
 Open questions (to settle before code):
 - Does the pager cache pages, or read and write each page on access?
 - Is the free list needed now, or can deleted pages be leaked for this milestone?
 """
 
+import os
+import struct
+from typing import Optional
+
 PAGE_SIZE = 4096
 MAGIC = b"TINYSQL1"
+_HEADER = struct.Struct(">8sIII")
+
+
+class Pager:
+    """Reads and writes fixed-size pages of one file."""
+
+    def __init__(self, path: str, order: Optional[int] = None):
+        self.path = path
+        if os.path.exists(path) and os.path.getsize(path) > 0:
+            self._file = open(path, "r+b")
+            self.order, self.root, self.page_count = self._read_header()
+        else:
+            if order is None:
+                raise ValueError("order is required when creating a new file")
+            self._file = open(path, "w+b")
+            self.order = order
+            self.root = 1
+            self.page_count = 2
+            self._write_header()
+            self.write_page(1, bytes(PAGE_SIZE))
+
+    def close(self) -> None:
+        self._file.close()
+
+    def __enter__(self) -> "Pager":
+        return self
+
+    def __exit__(self, *exc_info) -> None:
+        self.close()
+
+    def read_page(self, page_id: int) -> bytes:
+        if not 0 <= page_id < self.page_count:
+            raise IndexError(f"page {page_id} out of range")
+        self._file.seek(page_id * PAGE_SIZE)
+        data = self._file.read(PAGE_SIZE)
+        if len(data) != PAGE_SIZE:
+            raise ValueError(f"page {page_id} is truncated")
+        return data
+
+    def write_page(self, page_id: int, data: bytes) -> None:
+        if len(data) > PAGE_SIZE:
+            raise ValueError(f"page data is {len(data)} bytes, limit is {PAGE_SIZE}")
+        if page_id == self.page_count:
+            self.page_count += 1
+        elif not 0 <= page_id < self.page_count:
+            raise IndexError(f"page {page_id} out of range")
+        self._file.seek(page_id * PAGE_SIZE)
+        self._file.write(data.ljust(PAGE_SIZE, b"\x00"))
+        self._write_header()
+        self._file.flush()
+
+    def set_root(self, page_id: int) -> None:
+        self.root = page_id
+        self._write_header()
+        self._file.flush()
+
+    def _write_header(self) -> None:
+        header = _HEADER.pack(MAGIC, self.order, self.root, self.page_count)
+        self._file.seek(0)
+        self._file.write(header.ljust(PAGE_SIZE, b"\x00"))
+
+    def _read_header(self):
+        self._file.seek(0)
+        magic, order, root, page_count = _HEADER.unpack(
+            self._file.read(_HEADER.size)
+        )
+        if magic != MAGIC:
+            raise ValueError(f"{self.path} is not a tinysql page file")
+        return order, root, page_count
