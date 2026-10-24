@@ -110,6 +110,8 @@ class Executor:
                 raise ExecError(f"no such column {name!r}")
             matched = [r[name] for r in table.scan()
                        if (stmt.where is None or self._eval(stmt.where, r) is True) and r[name] is not None]
+            if func == "COUNT":
+                return [{f"COUNT({name})": len(matched)}]
             pick = min if func == "MIN" else max
             return [{f"{func}({name})": pick(matched) if matched else None}]
         if stmt.columns == COUNT_STAR:

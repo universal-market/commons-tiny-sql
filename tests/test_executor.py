@@ -179,6 +179,13 @@ class ExecutorTests(unittest.TestCase):
         self.assertEqual(self.run_sql(db, "SELECT MIN(name) FROM users"), [{"MIN(name)": "a"}])
         self.assertEqual(self.run_sql(db, "SELECT MAX(id) FROM users WHERE id < 3"), [{"MAX(id)": 2}])
 
+    def test_count_column_skips_nulls(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (2)")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(name) FROM users"), [{"COUNT(name)": 1}])
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
