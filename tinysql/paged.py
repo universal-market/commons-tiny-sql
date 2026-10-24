@@ -91,9 +91,19 @@ _TYPES = {name: t for t, name in _TYPE_NAMES.items()}
 
 
 def write_database(tables: dict, path: str) -> None:
-    """Write several tables to one page file: a JSON catalog on page 1, then each table's nodes."""
-    if os.path.exists(path):
-        os.remove(path)
+    """Write several tables to one page file: a JSON catalog on page 1, then each table's nodes.
+
+    The file is built under a temporary name and renamed over `path` at the end,
+    so a crash mid-save leaves the previous file intact.
+    """
+    tmp = path + ".tmp"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    _write_database_file(tables, tmp)
+    os.replace(tmp, path)
+
+
+def _write_database_file(tables: dict, path: str) -> None:
     with Pager(path, order=8) as pager:
         catalog = {}
         for name, table in tables.items():

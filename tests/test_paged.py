@@ -121,6 +121,24 @@ class PagedDatabaseTest(unittest.TestCase):
         self.assertEqual(loaded["users"].primary_key, "id")
         self.assertEqual([c.name for c in loaded["orders"].columns], ["oid"])
 
+    def test_failed_save_keeps_previous_database(self):
+        from unittest import mock
+
+        from tinysql.paged import read_database, write_database
+        from tinysql.table import Column, Table
+
+        users = Table("users", [Column("id", int)], "id")
+        users.insert({"id": 1})
+        write_database({"users": users}, self.path)
+
+        users.insert({"id": 2})
+        with mock.patch("tinysql.paged._write_database_file", side_effect=OSError("disk full")):
+            with self.assertRaises(OSError):
+                write_database({"users": users}, self.path)
+
+        loaded = read_database(self.path)
+        self.assertEqual(sorted(row["id"] for row in loaded["users"].scan()), [1])
+
 
 if __name__ == "__main__":
     unittest.main()
