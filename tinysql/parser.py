@@ -423,6 +423,8 @@ class _Parser:
                 node = Arith("*", node, self.term())
             elif self.accept("SLASH"):
                 node = Arith("/", node, self.term())
+            elif self.accept("PERCENT"):
+                node = Arith("%", node, self.term())
             else:
                 return node
 

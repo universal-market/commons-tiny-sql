@@ -346,6 +346,18 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = ex.run(parse("SELECT name FROM users WHERE id / 2 = -3"))
         self.assertEqual(rows, [{"name": "e"}])
 
+    def test_where_modulo_sign_follows_dividend(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (7, 'd')"))
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-7, 'e')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE id % 2 = 1"))
+        self.assertEqual(rows, [{"name": "d"}])
+        rows = ex.run(parse("SELECT name FROM users WHERE id % 2 = -1"))
+        self.assertEqual(rows, [{"name": "e"}])
+
     def test_group_by_rejects_ungrouped_column(self):
         from tinysql.cli import demo_executor
         from tinysql.parser import parse

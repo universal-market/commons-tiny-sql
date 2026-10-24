@@ -191,6 +191,10 @@ class Executor:
                     raise ExecutionError("division by zero")
                 q = abs(a) // abs(b)  # SQL integer division truncates toward zero
                 return q if (a < 0) == (b < 0) else -q
+            if expr.op == "%":
+                if b == 0:
+                    raise ExecutionError("division by zero")
+                return a - b * self._eval(Arith("/", Literal(a), Literal(b)), row)
             return a + b if expr.op == "+" else a - b
         if isinstance(expr, InList):
             a = self._eval(expr.operand, row)
