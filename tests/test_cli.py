@@ -16,6 +16,11 @@ class CliTests(unittest.TestCase):
         self.assertEqual(run_line(db, "SELECT nope FROM users"), "error: no such column 'nope'")
         self.assertTrue(run_line(db, "SELEC * FROM users").startswith("error: "))
 
+    def test_ddl_does_not_report_rows(self):
+        db = demo_executor()
+        self.assertEqual(run_line(db, "CREATE TABLE t (k INT, PRIMARY KEY (k))"), "ok")
+        self.assertEqual(run_line(db, "DROP TABLE t"), "ok")
+
     def test_empty_result(self):
         self.assertEqual(run_line(demo_executor(), "SELECT * FROM users"), "(0 rows)")
 

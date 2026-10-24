@@ -11,7 +11,7 @@ from typing import Any, List, Optional, TextIO
 
 from tinysql.executor import ExecError, Executor
 from tinysql.paged import read_database, write_database
-from tinysql.parser import Delete, ParseError, Update, parse
+from tinysql.parser import CreateTable, Delete, DropTable, ParseError, Update, parse
 from tinysql.table import Column, Table, TableError
 from tinysql.tokenizer import TokenizeError
 
@@ -54,6 +54,9 @@ def run_line(executor: Executor, line: str) -> str:
     """Run one statement and return its printable output. Errors are returned, not raised."""
     try:
         stmt = parse(line)
+        if isinstance(stmt, (CreateTable, DropTable)):
+            executor.run(stmt)
+            return "ok"
         verb = {Delete: "deleted", Update: "updated"}.get(type(stmt), "inserted")
         return format_result(executor.run(stmt), verb)
     except (ParseError, TokenizeError, ExecError, TableError) as exc:
