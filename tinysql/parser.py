@@ -205,6 +205,8 @@ class _Parser:
                 order_by.append(self.expect("IDENT").value)
             order_by = tuple(order_by)
             order_desc = bool(self.accept("DESC"))
+            if not order_desc:
+                self.accept("ASC")
         limit = self.expect("NUMBER").value if self.accept("LIMIT") else None
         if limit is not None and not isinstance(limit, int):
             raise ParseError("LIMIT takes an integer")

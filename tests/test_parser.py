@@ -75,6 +75,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t WHERE a NOT IN (1, 2)")
         self.assertEqual(stmt.where, Not(InList(Column("a"), (Literal(1), Literal(2)))))
 
+    def test_order_by_explicit_asc(self):
+        stmt = parse("SELECT * FROM t ORDER BY a ASC")
+        self.assertEqual((stmt.order_by, stmt.order_desc), (("a",), False))
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))
