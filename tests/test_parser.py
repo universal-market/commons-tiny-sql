@@ -43,6 +43,10 @@ class SelectTests(unittest.TestCase):
         stmt = parse("SELECT * FROM t LIMIT 2 OFFSET 3")
         self.assertEqual((stmt.limit, stmt.offset), (2, 3))
 
+    def test_insert_multiple_rows(self):
+        stmt = parse("INSERT INTO t (a, b) VALUES (1, 'x'), (2, 'y')")
+        self.assertEqual(stmt.rows, ((1, "x"), (2, "y")))
+
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")
         self.assertEqual(stmt.columns, ("COUNT(*)",))
