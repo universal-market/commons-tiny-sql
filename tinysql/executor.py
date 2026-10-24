@@ -8,7 +8,7 @@ and WHERE keeps a row only when its condition is TRUE.
 """
 
 import re
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from tinysql.parser import And, Arith, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Like, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
@@ -108,10 +108,34 @@ class Executor:
         table = self._table(stmt.table)
         return table.delete_where(lambda r: self._eval(stmt.where, r) is True)
 
+    def _joined_rows(self, stmt: Select) -> Tuple[List[str], List[Dict[str, Any]]]:
+        """Inner nested-loop join of stmt.table with stmt.join.table on the ON condition."""
+        left = self._table(stmt.table)
+        right = self._table(stmt.join.table)
+        left_names = [c.name for c in left.columns]
+        right_names = [c.name for c in right.columns]
+        clash = set(left_names) & set(right_names)
+        if clash:
+            raise ExecError(f"ambiguous column names in JOIN: {sorted(clash)}")
+        rows = []
+        right_rows = list(right.scan())
+        for l in left.scan():
+            for r in right_rows:
+                merged = {**l, **r}
+                if self._eval(stmt.join.on, merged) is True:
+                    rows.append(merged)
+        return left_names + right_names, rows
+
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
+        source = table.scan
+        if stmt.join is not None:
+            all_names, joined = self._joined_rows(stmt)
+            source = lambda: iter(joined)
         if stmt.columns and isinstance(stmt.columns[0], tuple) and stmt.columns[0][0] in AGGREGATES:
+            if stmt.join is not None:
+                raise ExecError("aggregate functions with JOIN are not supported")
             func, name = stmt.columns[0]
             if stmt.group_by:
                 raise ExecError("GROUP BY with aggregate functions is not supported")
@@ -136,7 +160,7 @@ class Executor:
             if name not in all_names:
                 raise ExecError(f"no such column {name!r}")
 
-        rows = [r for r in table.scan() if stmt.where is None or self._eval(stmt.where, r) is True]
+        rows = [r for r in source() if stmt.where is None or self._eval(stmt.where, r) is True]
         for name in reversed(stmt.order_by or ()):
             rows.sort(key=lambda r: (r[name] is not None, r[name]), reverse=stmt.order_desc)
         if stmt.group_by:

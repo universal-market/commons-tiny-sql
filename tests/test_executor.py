@@ -14,6 +14,18 @@ def make_db():
     return Executor({"users": users})
 
 
+def make_join_db():
+    users = Table("users", [Column("id", int), Column("name", str)], primary_key="id")
+    orders = Table("orders", [Column("oid", int), Column("user_id", int)], primary_key="oid")
+    db = Executor({"users": users, "orders": orders})
+    for sql in ("INSERT INTO users VALUES (1, 'al')", "INSERT INTO users VALUES (2, 'bo')",
+                "INSERT INTO users VALUES (3, 'cy')",
+                "INSERT INTO orders VALUES (10, 1)", "INSERT INTO orders VALUES (11, 1)",
+                "INSERT INTO orders VALUES (12, 2)", "INSERT INTO orders VALUES (13, 9)"):
+        db.run(parse(sql))
+    return db
+
+
 class ExecutorTests(unittest.TestCase):
     def run_sql(self, db, sql):
         return db.run(parse(sql))
@@ -226,6 +238,24 @@ class ExecutorTests(unittest.TestCase):
         self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
         with self.assertRaisesRegex(ExecError, "duplicate primary key"):
             self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
+
+
+    def test_inner_join_on_equality(self):
+        db = make_join_db()
+        rows = self.run_sql(db, "SELECT name, oid FROM users JOIN orders ON id = user_id ORDER BY oid")
+        self.assertEqual(rows, [{"name": "al", "oid": 10}, {"name": "al", "oid": 11}, {"name": "bo", "oid": 12}])
+
+    def test_join_with_where_and_no_match(self):
+        db = make_join_db()
+        rows = self.run_sql(db, "SELECT name FROM users JOIN orders ON id = user_id WHERE oid > 11")
+        self.assertEqual(rows, [{"name": "bo"}])
+        self.assertEqual(self.run_sql(db, "SELECT name FROM users JOIN orders ON id = user_id WHERE oid > 99"), [])
+
+    def test_join_rejects_ambiguous_column_names(self):
+        db = make_join_db()
+        db.run(parse("CREATE TABLE extra (id INT PRIMARY KEY)"))
+        with self.assertRaises(ExecError):
+            self.run_sql(db, "SELECT name FROM users JOIN extra ON id = id")
 
 
 class CreateTableExecutorTests(unittest.TestCase):
