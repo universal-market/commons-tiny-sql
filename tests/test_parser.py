@@ -129,6 +129,13 @@ class SelectTests(unittest.TestCase):
     def test_drop_table(self):
         self.assertEqual(parse("DROP TABLE t"), DropTable("t"))
 
+    def test_drop_table_if_exists(self):
+        self.assertEqual(parse("DROP TABLE IF EXISTS t"), DropTable("t", if_exists=True))
+
+    def test_drop_table_if_exists_needs_exists(self):
+        with self.assertRaises(ParseError):
+            parse("DROP TABLE IF t")
+
     def test_limit_must_be_integer(self):
         with self.assertRaises(ParseError):
             parse("SELECT * FROM t LIMIT 2.5")

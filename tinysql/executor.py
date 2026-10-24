@@ -73,6 +73,8 @@ class Executor:
         return 0
 
     def _drop(self, stmt: DropTable) -> int:
+        if stmt.if_exists and stmt.table not in self.tables:
+            return 0
         self._table(stmt.table)
         del self.tables[stmt.table]
         return 0

@@ -272,6 +272,15 @@ class UpdateExecutorTests(unittest.TestCase):
 
 
 class DropTableExecutorTests(unittest.TestCase):
+    def test_drop_if_exists_ignores_missing_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("DROP TABLE IF EXISTS nope"))
+        ex.run(parse("DROP TABLE IF EXISTS users"))
+        self.assertNotIn("users", ex.tables)
+
     def test_drop_removes_table(self):
         from tinysql.cli import demo_executor
         from tinysql.executor import ExecError

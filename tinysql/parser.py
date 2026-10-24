@@ -123,6 +123,7 @@ class ColumnDef:
 @dataclass(frozen=True)
 class DropTable:
     table: str
+    if_exists: bool = False
 
 
 @dataclass(frozen=True)
@@ -176,7 +177,10 @@ class _Parser:
             stmt = self.create_table()
         elif self.accept("DROP"):
             self.expect("TABLE")
-            stmt = DropTable(self.expect("IDENT").value)
+            if_exists = bool(self.accept("IF"))
+            if if_exists:
+                self.expect("EXISTS")
+            stmt = DropTable(self.expect("IDENT").value, if_exists)
         elif self.accept("DELETE"):
             stmt = self.delete()
         elif self.accept("UPDATE"):
