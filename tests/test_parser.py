@@ -79,13 +79,13 @@ class InsertTests(unittest.TestCase):
     def test_with_column_list(self):
         self.assertEqual(
             parse("INSERT INTO t (a, b) VALUES (1, 'x')"),
-            Insert("t", ("a", "b"), (1, "x")),
+            Insert("t", ("a", "b"), ((1, "x"),)),
         )
 
     def test_without_column_list(self):
         self.assertEqual(
             parse("insert into t values (2.5, NULL);"),
-            Insert("t", None, (2.5, None)),
+            Insert("t", None, ((2.5, None),)),
         )
 
     def test_count_mismatch_raises(self):

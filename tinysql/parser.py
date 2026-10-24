@@ -78,7 +78,7 @@ class Select:
 class Insert:
     table: str
     columns: Optional[Tuple[str, ...]]  # None means all columns in table order
-    values: Tuple[object, ...]
+    rows: Tuple[Tuple[object, ...], ...]
 
 
 @dataclass(frozen=True)
@@ -222,16 +222,23 @@ class _Parser:
             columns = self.ident_list()
             self.expect("RPAREN")
         self.expect("VALUES")
+        rows = [self.value_row()]
+        while self.accept("COMMA"):
+            rows.append(self.value_row())
+        for values in rows:
+            if columns is not None and len(columns) != len(values):
+                raise ParseError(
+                    f"INSERT has {len(columns)} columns but {len(values)} values"
+                )
+        return Insert(table, columns, tuple(rows))
+
+    def value_row(self):
         self.expect("LPAREN")
         values = [self.literal()]
         while self.accept("COMMA"):
             values.append(self.literal())
         self.expect("RPAREN")
-        if columns is not None and len(columns) != len(values):
-            raise ParseError(
-                f"INSERT has {len(columns)} columns but {len(values)} values"
-            )
-        return Insert(table, columns, tuple(values))
+        return tuple(values)
 
     def create_table(self):
         self.expect("TABLE")

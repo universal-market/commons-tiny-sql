@@ -72,6 +72,11 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users ORDER BY id LIMIT 2 OFFSET 1")
         self.assertEqual(rows, [{"id": 2}, {"id": 3}])
 
+    def test_insert_multiple_rows(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a'), (2, 'b')")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

@@ -74,7 +74,8 @@ class Executor:
         table = self._table(stmt.table)
         names = stmt.columns or tuple(c.name for c in table.columns)
         try:
-            table.insert(dict(zip(names, stmt.values)))
+            for values in stmt.rows:
+                table.insert(dict(zip(names, values)))
         except TableError as exc:
             raise ExecError(str(exc)) from exc
         return 1
