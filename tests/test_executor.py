@@ -93,6 +93,21 @@ class ExecutorTests(unittest.TestCase):
         rows = self.run_sql(db, "SELECT id FROM users WHERE score IS NULL")
         self.assertEqual(rows, [{"id": 1}])
 
+    def test_where_is_not_null(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (2, 'b')")
+        self.run_sql(db, "UPDATE users SET score = 1.5 WHERE id = 2")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE score IS NOT NULL")
+        self.assertEqual(rows, [{"id": 2}])
+
+    def test_where_in_list(self):
+        db = make_db()
+        for i in (1, 2, 3):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id IN (1, 3)")
+        self.assertEqual(rows, [{"id": 1}, {"id": 3}])
+
     def test_count_star(self):
         db = make_db()
         self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")

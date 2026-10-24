@@ -9,7 +9,7 @@ and WHERE keeps a row only when its condition is TRUE.
 
 from typing import Any, Dict, List, Optional
 
-from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, Insert, IsNull, Literal, Not, Or, Select, Update
+from tinysql.parser import And, Column, Compare, CreateTable, Delete, DropTable, InList, Insert, IsNull, Literal, Not, Or, Select, Update
 from tinysql.table import Column as TableColumn, Table, TableError
 
 PY_TYPES = {"INT": int, "FLOAT": float, "TEXT": str, "BOOL": bool}
@@ -121,6 +121,14 @@ class Executor:
             return row[expr.name]
         if isinstance(expr, Literal):
             return expr.value
+        if isinstance(expr, InList):
+            a = self._eval(expr.operand, row)
+            if a is None:
+                return None
+            values = [self._eval(item, row) for item in expr.items]
+            if a in values:
+                return True
+            return None if None in values else False
         if isinstance(expr, IsNull):
             return self._eval(expr.operand, row) is None
         if isinstance(expr, Compare):

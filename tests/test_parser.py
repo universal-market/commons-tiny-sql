@@ -1,7 +1,7 @@
 import unittest
 
 from tinysql.parser import (
-    And, Column, ColumnDef, Compare, DropTable, Insert, IsNull, Literal, Not, Or, ParseError, Select, parse,
+    And, Column, ColumnDef, Compare, DropTable, InList, Insert, IsNull, Literal, Not, Or, ParseError, Select, parse,
 )
 from tinysql.tokenizer import TokenizeError
 
@@ -50,6 +50,14 @@ class SelectTests(unittest.TestCase):
     def test_where_is_null(self):
         stmt = parse("SELECT * FROM t WHERE a IS NULL")
         self.assertEqual(stmt.where, IsNull(Column("a")))
+
+    def test_where_is_not_null(self):
+        stmt = parse("SELECT * FROM t WHERE a IS NOT NULL")
+        self.assertEqual(stmt.where, Not(IsNull(Column("a"))))
+
+    def test_where_in_list(self):
+        stmt = parse("SELECT * FROM t WHERE a IN (1, 2)")
+        self.assertEqual(stmt.where, InList(Column("a"), (Literal(1), Literal(2))))
 
     def test_count_star(self):
         stmt = parse("SELECT COUNT(*) FROM t")

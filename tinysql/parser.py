@@ -42,6 +42,12 @@ class IsNull:
 
 
 @dataclass(frozen=True)
+class InList:
+    operand: "Expr"
+    items: tuple
+
+
+@dataclass(frozen=True)
 class Compare:
     op: str
     left: "Expr"
@@ -65,7 +71,7 @@ class Not:
     operand: "Expr"
 
 
-Expr = Union[Column, Literal, Compare, IsNull, And, Or, Not]
+Expr = Union[Column, Literal, Compare, IsNull, InList, And, Or, Not]
 
 
 @dataclass(frozen=True)
@@ -309,8 +315,16 @@ class _Parser:
     def comparison(self):
         left = self.operand()
         if self.accept("IS"):
+            negated = bool(self.accept("NOT"))
             self.expect("NULL")
-            return IsNull(left)
+            return Not(IsNull(left)) if negated else IsNull(left)
+        if self.accept("IN"):
+            self.expect("LPAREN")
+            items = [self.operand()]
+            while self.accept("COMMA"):
+                items.append(self.operand())
+            self.expect("RPAREN")
+            return InList(left, tuple(items))
         for kind, op in COMPARISON_OPS.items():
             if self.accept(kind):
                 return Compare(op, left, self.operand())
