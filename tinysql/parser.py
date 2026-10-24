@@ -418,9 +418,13 @@ class _Parser:
 
     def product(self):
         node = self.term()
-        while self.accept("STAR"):
-            node = Arith("*", node, self.term())
-        return node
+        while True:
+            if self.accept("STAR"):
+                node = Arith("*", node, self.term())
+            elif self.accept("SLASH"):
+                node = Arith("/", node, self.term())
+            else:
+                return node
 
     def term(self):
         if self.accept("LPAREN"):

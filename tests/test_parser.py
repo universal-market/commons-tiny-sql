@@ -145,6 +145,11 @@ class SelectTests(unittest.TestCase):
         self.assertEqual(stmt.where.left.left, Literal(0))
         self.assertEqual(stmt.where.left.right, Column("a"))
 
+    def test_division_binds_like_multiplication(self):
+        stmt = parse("SELECT a FROM t WHERE a + 6 / 2 = 6")
+        self.assertEqual(stmt.where.left.op, "+")
+        self.assertEqual(stmt.where.left.right.op, "/")
+
     def test_max_column(self):
         stmt = parse("SELECT MAX(a) FROM t")
         self.assertEqual(stmt.columns, (("MAX", "a"),))
