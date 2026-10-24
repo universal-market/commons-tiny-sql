@@ -5,6 +5,7 @@ around its median key, which moves up into the parent. The root splits into a
 new root, so the tree grows at the top and stays balanced.
 """
 
+import json
 from bisect import bisect_left, bisect_right
 from typing import Any, Iterator, List, Optional, Tuple
 
@@ -74,6 +75,26 @@ class BTree:
     def range(self, low: Any = None, high: Any = None) -> Iterator[Tuple[Any, Any]]:
         """Yield pairs with low <= key <= high in order. None means unbounded."""
         yield from self._walk(self._root, low, high)
+
+    def save(self, path: str) -> None:
+        """Write the order and all pairs to ``path`` as JSON.
+
+        This is a snapshot, not page storage: keys and values must be
+        JSON-serialisable, and the file is rewritten in full each time.
+        """
+        payload = {"order": self.order, "items": list(self.items())}
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(payload, f)
+
+    @classmethod
+    def load(cls, path: str) -> "BTree":
+        """Rebuild a tree from a file written by ``save``."""
+        with open(path, encoding="utf-8") as f:
+            payload = json.load(f)
+        tree = cls(order=payload["order"])
+        for key, value in payload["items"]:
+            tree.insert(key, value)
+        return tree
 
     # internals
 

@@ -11,11 +11,11 @@ reviewed pull requests; agents never merge their own.
 
 - `tinysql/tokenizer.py`: SQL text to tokens
 - `tinysql/parser.py`: SELECT and INSERT to AST nodes
-- `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete)
+- `tinysql/btree.py`: in-memory B-tree (insert, lookup, range scan, delete); `save`/`load` write a JSON snapshot (not page storage)
 - `tinysql/table.py`: typed table; rows live in a B-tree keyed by primary key
 - `tinysql/executor.py`: runs parsed INSERT and SELECT against tables
 
-Run the tests with `python3 -m unittest discover`. 62 tests pass.
+Run the tests with `python3 -m unittest discover`. 66 tests pass.
 
 - Discussion: https://tilori.example
 - Plan: [PLAN.md](PLAN.md)

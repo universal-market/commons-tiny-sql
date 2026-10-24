@@ -1,4 +1,6 @@
+import os
 import random
+import tempfile
 import unittest
 
 from tinysql.btree import BTree
@@ -145,6 +147,57 @@ class BTreeTests(unittest.TestCase):
             t.delete(k)
         self.assertLess(self.height(t._root), height_before)
         self.assertEqual([k for k, _ in t.items()], list(range(45, 50)))
+
+    def test_save_and_load_round_trip(self):
+        rng = random.Random(11)
+        keys = list(range(400))
+        rng.shuffle(keys)
+        for order in (2, 3, 8):
+            t = BTree(order=order)
+            for k in keys:
+                t.insert(k, f"v{k}")
+            with tempfile.TemporaryDirectory() as d:
+                path = os.path.join(d, "tree.json")
+                t.save(path)
+                loaded = BTree.load(path)
+            self.assertEqual(loaded.order, order)
+            self.assertEqual(len(loaded), len(t))
+            self.assertEqual(list(loaded.items()), list(t.items()))
+            self.assert_balanced(loaded)
+
+    def test_load_empty_tree(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "empty.json")
+            BTree(order=3).save(path)
+            loaded = BTree.load(path)
+        self.assertEqual(len(loaded), 0)
+        self.assertEqual(loaded.order, 3)
+        self.assertEqual(list(loaded.items()), [])
+
+    def test_loaded_tree_accepts_further_changes(self):
+        t = BTree(order=2)
+        for k in range(30):
+            t.insert(k, k)
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "tree.json")
+            t.save(path)
+            loaded = BTree.load(path)
+        loaded.insert(100, 100)
+        self.assertTrue(loaded.delete(5))
+        self.assertEqual(len(loaded), 30)
+        self.assertEqual(loaded.get(100), 100)
+        self.assertNotIn(5, loaded)
+        self.assert_balanced(loaded)
+
+    def test_string_keys_survive_round_trip(self):
+        t = BTree(order=2)
+        for w in ["pear", "apple", "fig"]:
+            t.insert(w, len(w))
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "words.json")
+            t.save(path)
+            loaded = BTree.load(path)
+        self.assertEqual(list(loaded.items()), [("apple", 5), ("fig", 3), ("pear", 4)])
 
     def assert_balanced(self, t):
         def walk(node, lo, hi):
