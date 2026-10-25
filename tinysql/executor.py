@@ -146,6 +146,24 @@ class Executor:
             return where.left.name, where.right.value
         return None
 
+    @staticmethod
+    def _indexed_or(table: Table, where) -> Optional[List[Tuple[str, Any]]]:
+        """Both sides of an OR as indexed equalities, or None."""
+        if not isinstance(where, Or):
+            return None
+        left = Executor._indexed_equality(table, where.left)
+        right = Executor._indexed_equality(table, where.right)
+        return [left, right] if left and right else None
+
+    @staticmethod
+    def _union_lookup(table: Table, terms: List[Tuple[str, Any]]) -> List[Dict[str, Any]]:
+        """Rows matching any term, once each, in primary-key order."""
+        found: Dict[Any, Dict[str, Any]] = {}
+        for column, value in terms:
+            for row in table.lookup(column, value):
+                found[row[table.primary_key]] = row
+        return [found[key] for key in sorted(found)]
+
     def _select(self, stmt: Select) -> List[Dict[str, Any]]:
         table = self._table(stmt.table)
         all_names = [c.name for c in table.columns]
@@ -154,6 +172,9 @@ class Executor:
         if indexed is not None:
             # The WHERE filter below still runs, so the index only narrows the scan.
             source = lambda: table.lookup(*indexed)
+        either = self._indexed_or(table, stmt.where)
+        if either is not None:
+            source = lambda: self._union_lookup(table, either)
         if stmt.join is not None:
             all_names, joined = self._joined_rows(stmt)
             source = lambda: iter(joined)
