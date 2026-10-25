@@ -138,7 +138,9 @@ class Executor:
 
     @staticmethod
     def _indexed_equality(table: Table, where) -> Optional[Tuple[str, Any]]:
-        """(column, value) when WHERE is `indexed_column = literal`, else None."""
+        """(column, value) when WHERE is `indexed_column = literal`, or an AND with such a term."""
+        if isinstance(where, And):
+            return Executor._indexed_equality(table, where.left) or Executor._indexed_equality(table, where.right)
         if (isinstance(where, Compare) and where.op == "=" and isinstance(where.left, Column)
                 and isinstance(where.right, Literal) and table.has_index(where.left.name)):
             return where.left.name, where.right.value

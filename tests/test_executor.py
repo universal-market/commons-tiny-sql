@@ -438,6 +438,16 @@ class DropTableExecutorTests(unittest.TestCase):
         db.run(parse("INSERT INTO t VALUES (3, 'bob')"))
         self.assertEqual([r["id"] for r in db.tables["t"].lookup("name", "bob")], [2, 3])
 
+    def test_select_uses_index_for_and_equality(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, age INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann', 30), (2, 'bob', 30), (3, 'bob', 40)"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE age = 30 AND name = 'bob'"))
+        self.assertEqual([r["id"] for r in rows], [2])
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'bob' AND age > 35"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
     def test_create_index_errors(self):
         db = make_db()
         db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
