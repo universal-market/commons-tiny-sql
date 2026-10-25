@@ -147,6 +147,17 @@ class Executor:
         return None
 
     @staticmethod
+    def _indexed_range(table: Table, where):
+        """(column, test) when WHERE is `indexed_column <op> literal` with a range operator, or None."""
+        if (isinstance(where, Compare) and where.op in ("<", "<=", ">", ">=")
+                and isinstance(where.left, Column) and isinstance(where.right, Literal)
+                and where.right.value is not None and table.has_index(where.left.name)):
+            value = where.right.value
+            compare = COMPARE[where.op]
+            return where.left.name, lambda v: compare(v, value)
+        return None
+
+    @staticmethod
     def _indexed_or(table: Table, where) -> Optional[List[Tuple[str, Any]]]:
         """Both sides of an OR as indexed equalities, or None."""
         if not isinstance(where, Or):
@@ -175,6 +186,9 @@ class Executor:
         either = self._indexed_or(table, stmt.where)
         if either is not None:
             source = lambda: self._union_lookup(table, either)
+        ranged = self._indexed_range(table, stmt.where)
+        if indexed is None and either is None and ranged is not None:
+            source = lambda: table.lookup_where(*ranged)
         if stmt.join is not None:
             all_names, joined = self._joined_rows(stmt)
             source = lambda: iter(joined)

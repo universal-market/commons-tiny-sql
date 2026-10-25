@@ -100,6 +100,17 @@ class Table:
         for key in sorted(self._indexes[column].get(value, ())):
             yield dict(self._rows.get(key))
 
+    def lookup_where(self, column: str, test) -> Iterator[Dict[str, Any]]:
+        """Yield copies of rows whose indexed ``column`` value is not NULL and satisfies ``test``, in primary-key order."""
+        if column not in self._indexes:
+            raise TableError(f"no index on column {column!r}")
+        keys = set()
+        for value, pks in self._indexes[column].items():
+            if value is not None and test(value):
+                keys |= pks
+        for key in sorted(keys):
+            yield dict(self._rows.get(key))
+
     def _unindex(self, row: Dict[str, Any], key: Any) -> None:
         for column, index in self._indexes.items():
             keys = index.get(row[column])

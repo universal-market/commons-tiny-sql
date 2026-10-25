@@ -460,6 +460,20 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = db.run(parse("SELECT id FROM t WHERE name = 'ann' OR age = 40"))
         self.assertEqual([r["id"] for r in rows], [1, 3])
 
+    def test_select_uses_index_for_range(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, age INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 30), (2, 25), (3, 40), (4, 30)"))
+        db.run(parse("CREATE INDEX ON t (age)"))
+        rows = db.run(parse("SELECT id FROM t WHERE age > 25"))
+        self.assertEqual([r["id"] for r in rows], [1, 3, 4])
+        rows = db.run(parse("SELECT id FROM t WHERE age <= 30"))
+        self.assertEqual([r["id"] for r in rows], [1, 2, 4])
+        rows = db.run(parse("SELECT id FROM t WHERE age < 30"))
+        self.assertEqual([r["id"] for r in rows], [2])
+        rows = db.run(parse("SELECT id FROM t WHERE age >= 40"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
     def test_create_index_errors(self):
         db = make_db()
         db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
