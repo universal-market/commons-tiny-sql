@@ -471,6 +471,16 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = db.run(parse("SELECT id FROM t WHERE name IN ('bob', NULL)"))
         self.assertEqual([r["id"] for r in rows], [2])
 
+    def test_select_uses_index_for_between(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, n INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 5), (2, 10), (3, 15)"))
+        db.run(parse("CREATE INDEX ON t (n)"))
+        rows = db.run(parse("SELECT id FROM t WHERE n BETWEEN 5 AND 10"))
+        self.assertEqual([r["id"] for r in rows], [1, 2])
+        rows = db.run(parse("SELECT id FROM t WHERE n NOT BETWEEN 5 AND 10"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
     def test_select_uses_index_for_range(self):
         db = make_db()
         db.run(parse("CREATE TABLE t (id INT, age INT, PRIMARY KEY (id))"))

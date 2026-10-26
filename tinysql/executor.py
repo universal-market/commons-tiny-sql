@@ -147,14 +147,27 @@ class Executor:
         return None
 
     @staticmethod
-    def _indexed_range(table: Table, where):
-        """(column, test) when WHERE is `indexed_column <op> literal` with a range operator, or None."""
+    def _range_term(table: Table, where):
+        """(column, test) for one `indexed_column <op> literal` range comparison, or None."""
         if (isinstance(where, Compare) and where.op in ("<", "<=", ">", ">=")
                 and isinstance(where.left, Column) and isinstance(where.right, Literal)
                 and where.right.value is not None and table.has_index(where.left.name)):
             value = where.right.value
             compare = COMPARE[where.op]
             return where.left.name, lambda v: compare(v, value)
+        return None
+
+    @staticmethod
+    def _indexed_range(table: Table, where):
+        """(column, test) for a range comparison, or for BETWEEN (an AND of two range comparisons on one column), or None."""
+        term = Executor._range_term(table, where)
+        if term is not None:
+            return term
+        if isinstance(where, And):
+            left = Executor._range_term(table, where.left)
+            right = Executor._range_term(table, where.right)
+            if left and right and left[0] == right[0]:
+                return left[0], lambda v: left[1](v) and right[1](v)
         return None
 
     @staticmethod
