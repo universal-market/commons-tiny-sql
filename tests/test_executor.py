@@ -480,6 +480,7 @@ class DropTableExecutorTests(unittest.TestCase):
         self.assertEqual([r["id"] for r in rows], [1, 2])
         rows = db.run(parse("SELECT id FROM t WHERE n NOT BETWEEN 5 AND 10"))
         self.assertEqual([r["id"] for r in rows], [3])
+        self.assertIsNotNone(Executor._indexed_range(db.tables["t"], parse("SELECT id FROM t WHERE n NOT BETWEEN 5 AND 10").where))
 
     def test_select_uses_index_for_range(self):
         db = make_db()

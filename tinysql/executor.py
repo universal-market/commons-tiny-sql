@@ -168,6 +168,11 @@ class Executor:
             right = Executor._range_term(table, where.right)
             if left and right and left[0] == right[0]:
                 return left[0], lambda v: left[1](v) and right[1](v)
+        if isinstance(where, Not) and isinstance(where.operand, And):
+            # NOT BETWEEN: the complement of the same-column pair. NULL keys are skipped by lookup_where.
+            term = Executor._indexed_range(table, where.operand)
+            if term is not None:
+                return term[0], lambda v: not term[1](v)
         return None
 
     @staticmethod
