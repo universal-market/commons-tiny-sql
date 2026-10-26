@@ -1,0 +1,518 @@
+import unittest
+
+from tinysql.executor import ExecError, Executor
+from tinysql.parser import parse
+from tinysql.table import Column, Table
+
+
+def make_db():
+    users = Table(
+        "users",
+        [Column("id", int), Column("name", str, nullable=True), Column("score", float, nullable=True)],
+        primary_key="id",
+    )
+    return Executor({"users": users})
+
+
+def make_join_db():
+    users = Table("users", [Column("id", int), Column("name", str)], primary_key="id")
+    orders = Table("orders", [Column("oid", int), Column("user_id", int)], primary_key="oid")
+    db = Executor({"users": users, "orders": orders})
+    for sql in ("INSERT INTO users VALUES (1, 'al')", "INSERT INTO users VALUES (2, 'bo')",
+                "INSERT INTO users VALUES (3, 'cy')",
+                "INSERT INTO orders VALUES (10, 1)", "INSERT INTO orders VALUES (11, 1)",
+                "INSERT INTO orders VALUES (12, 2)", "INSERT INTO orders VALUES (13, 9)"):
+        db.run(parse(sql))
+    return db
+
+
+class ExecutorTests(unittest.TestCase):
+    def run_sql(self, db, sql):
+        return db.run(parse(sql))
+
+    def test_insert_then_select_all(self):
+        db = make_db()
+        self.assertEqual(self.run_sql(db, "INSERT INTO users VALUES (2, 'bo', 1.5)"), 1)
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'al')")
+        self.assertEqual(
+            self.run_sql(db, "SELECT * FROM users"),
+            [
+                {"id": 1, "name": "al", "score": None},
+                {"id": 2, "name": "bo", "score": 1.5},
+            ],
+        )
+
+    def test_where_order_limit_and_projection(self):
+        db = make_db()
+        for i in range(10):
+            self.run_sql(db, f"INSERT INTO users VALUES ({i}, 'n{i}', {i}.0)")
+        rows = self.run_sql(
+            db, "SELECT id FROM users WHERE score >= 3.0 AND NOT id = 7 ORDER BY score LIMIT 3"
+        )
+        self.assertEqual(rows, [{"id": 3}, {"id": 4}, {"id": 5}])
+
+    def test_null_comparison_is_not_true(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'x', 2.0)")
+        self.assertEqual(self.run_sql(db, "SELECT id FROM users WHERE name = 'x'"), [{"id": 2}])
+        self.assertEqual(self.run_sql(db, "SELECT id FROM users WHERE NOT name = 'x'"), [])
+        self.assertEqual(
+            self.run_sql(db, "SELECT id FROM users WHERE name = 'x' OR id = 1"),
+            [{"id": 1}, {"id": 2}],
+        )
+
+    def test_order_by_puts_nulls_first(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 2.0)")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (2)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY score")
+        self.assertEqual(rows, [{"id": 2}, {"id": 1}])
+
+    def test_order_by_two_columns(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'b', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'a', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (3, 'a', 1.0)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY score, name")
+        self.assertEqual(rows, [{"id": 3}, {"id": 2}, {"id": 1}])
+
+    def test_order_by_explicit_asc(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'b', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'a', 1.0)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY score ASC")
+        self.assertEqual(rows, [{"id": 2}, {"id": 1}])
+
+    def test_order_by_desc_puts_nulls_last(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (3, 'c', 5.0)")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (2)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY score DESC")
+        self.assertEqual(rows, [{"id": 3}, {"id": 1}, {"id": 2}])
+
+    def test_limit_with_offset(self):
+        db = make_db()
+        for i in range(1, 5):
+            self.run_sql(db, f"INSERT INTO users VALUES ({i}, 'u{i}', 1.0)")
+        rows = self.run_sql(db, "SELECT id FROM users ORDER BY id LIMIT 2 OFFSET 1")
+        self.assertEqual(rows, [{"id": 2}, {"id": 3}])
+
+    def test_insert_multiple_rows(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a'), (2, 'b')")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
+
+    def test_delete_and_update_missing_table_raise(self):
+        from tinysql.parser import parse
+
+        db = make_db()
+        for sql in ("DELETE FROM nope WHERE id = 1", "UPDATE nope SET name = 'x' WHERE id = 1"):
+            with self.assertRaises(ExecError):
+                self.run_sql(db, sql)
+
+    def test_where_is_null(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (2, 'b')")
+        self.run_sql(db, "UPDATE users SET score = 1.5 WHERE id = 2")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE score IS NULL")
+        self.assertEqual(rows, [{"id": 1}])
+
+    def test_where_is_not_null(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (2, 'b')")
+        self.run_sql(db, "UPDATE users SET score = 1.5 WHERE id = 2")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE score IS NOT NULL")
+        self.assertEqual(rows, [{"id": 2}])
+
+    def test_where_in_list(self):
+        db = make_db()
+        for i in (1, 2, 3):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id IN (1, 3)")
+        self.assertEqual(rows, [{"id": 1}, {"id": 3}])
+
+    def test_select_distinct(self):
+        db = make_db()
+        for i, name in ((1, "a"), (2, "a"), (3, "b")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT DISTINCT name FROM users")
+        self.assertEqual(rows, [{"name": "a"}, {"name": "b"}])
+
+    def test_where_between(self):
+        db = make_db()
+        for i in (1, 2, 3, 4):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id BETWEEN 2 AND 3")
+        self.assertEqual(rows, [{"id": 2}, {"id": 3}])
+
+    def test_where_not_in_list(self):
+        db = make_db()
+        for i in (1, 2, 3):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id NOT IN (1, 3)")
+        self.assertEqual(rows, [{"id": 2}])
+
+    def test_where_not_between(self):
+        db = make_db()
+        for i in (1, 2, 3, 4):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, 'u{i}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE id NOT BETWEEN 2 AND 3")
+        self.assertEqual(rows, [{"id": 1}, {"id": 4}])
+
+    def test_where_like(self):
+        db = make_db()
+        for i, name in ((1, "alpha"), (2, "beta"), (3, "alps")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE name LIKE 'al%'")
+        self.assertEqual(rows, [{"id": 1}, {"id": 3}])
+
+    def test_where_not_like(self):
+        db = make_db()
+        for i, name in ((1, "alpha"), (2, "beta"), (3, "alps")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE name NOT LIKE 'al%'")
+        self.assertEqual(rows, [{"id": 2}])
+
+    def test_where_like_underscore(self):
+        db = make_db()
+        for i, name in ((1, "cat"), (2, "cot"), (3, "coat")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        rows = self.run_sql(db, "SELECT id FROM users WHERE name LIKE 'c_t'")
+        self.assertEqual(rows, [{"id": 1}, {"id": 2}])
+
+    def test_min_max(self):
+        db = make_db()
+        for i, name in ((1, "b"), (2, "a"), (3, "c")):
+            self.run_sql(db, f"INSERT INTO users (id, name) VALUES ({i}, '{name}')")
+        self.assertEqual(self.run_sql(db, "SELECT MIN(name) FROM users"), [{"MIN(name)": "a"}])
+        self.assertEqual(self.run_sql(db, "SELECT MAX(id) FROM users WHERE id < 3"), [{"MAX(id)": 2}])
+
+    def test_count_column_skips_nulls(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (2)")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(name) FROM users"), [{"COUNT(name)": 1}])
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 2}])
+
+    def test_sum_skips_nulls(self):
+        db = make_db()
+        for i, n in ((1, 2.0), (2, 5.0)):
+            self.run_sql(db, f"INSERT INTO users (id, score) VALUES ({i}, {n})")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (3)")
+        self.assertEqual(self.run_sql(db, "SELECT SUM(score) FROM users"), [{"SUM(score)": 7.0}])
+        self.assertEqual(self.run_sql(db, "SELECT SUM(score) FROM users WHERE id > 99"), [{"SUM(score)": None}])
+
+    def test_avg_skips_nulls(self):
+        db = make_db()
+        for i, n in ((1, 2.0), (2, 5.0)):
+            self.run_sql(db, f"INSERT INTO users (id, score) VALUES ({i}, {n})")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (3)")
+        self.assertEqual(self.run_sql(db, "SELECT AVG(score) FROM users"), [{"AVG(score)": 3.5}])
+        self.assertEqual(self.run_sql(db, "SELECT AVG(score) FROM users WHERE id > 99"), [{"AVG(score)": None}])
+
+    def test_column_alias(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users (id, name) VALUES (1, 'a')")
+        self.assertEqual(self.run_sql(db, "SELECT name AS n, id FROM users"), [{"n": "a", "id": 1}])
+
+    def test_count_star(self):
+        db = make_db()
+        self.run_sql(db, "INSERT INTO users VALUES (1, 'a', 1.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (2, 'b', 2.0)")
+        self.run_sql(db, "INSERT INTO users VALUES (3, 'c', 3.0)")
+        self.assertEqual(self.run_sql(db, "SELECT COUNT(*) FROM users"), [{"COUNT(*)": 3}])
+        self.assertEqual(
+            self.run_sql(db, "SELECT COUNT(*) FROM users WHERE id > 1"), [{"COUNT(*)": 2}]
+        )
+
+    def test_errors(self):
+        db = make_db()
+        with self.assertRaisesRegex(ExecError, "no such table"):
+            self.run_sql(db, "SELECT * FROM nope")
+        with self.assertRaisesRegex(ExecError, "no such column"):
+            self.run_sql(db, "SELECT bogus FROM users")
+        self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
+        with self.assertRaisesRegex(ExecError, "duplicate primary key"):
+            self.run_sql(db, "INSERT INTO users (id) VALUES (1)")
+
+
+    def test_inner_join_on_equality(self):
+        db = make_join_db()
+        rows = self.run_sql(db, "SELECT name, oid FROM users JOIN orders ON id = user_id ORDER BY oid")
+        self.assertEqual(rows, [{"name": "al", "oid": 10}, {"name": "al", "oid": 11}, {"name": "bo", "oid": 12}])
+
+    def test_join_with_where_and_no_match(self):
+        db = make_join_db()
+        rows = self.run_sql(db, "SELECT name FROM users JOIN orders ON id = user_id WHERE oid > 11")
+        self.assertEqual(rows, [{"name": "bo"}])
+        self.assertEqual(self.run_sql(db, "SELECT name FROM users JOIN orders ON id = user_id WHERE oid > 99"), [])
+
+    def test_join_rejects_ambiguous_column_names(self):
+        db = make_join_db()
+        db.tables["extra"] = Table("extra", [Column("id", int)], primary_key="id")
+        with self.assertRaises(ExecError):
+            self.run_sql(db, "SELECT name FROM users JOIN extra ON id = id")
+
+
+class CreateTableExecutorTests(unittest.TestCase):
+    def test_create_then_insert_and_select(self):
+        db = Executor({})
+        db.run(parse("CREATE TABLE t (id INT, name TEXT NULL, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t (id) VALUES (1)"))
+        self.assertEqual(db.run(parse("SELECT * FROM t")), [{"id": 1, "name": None}])
+
+    def test_existing_table_is_rejected(self):
+        db = Executor({})
+        db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+
+
+class DeleteExecutorTests(unittest.TestCase):
+    def test_delete_matching_rows_returns_count(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        for sql in ("INSERT INTO users VALUES (1, 'al', 2.0)",
+                    "INSERT INTO users VALUES (2, 'bo', 3.0)",
+                    "INSERT INTO users VALUES (3, 'cy', 4.0)"):
+            ex.run(parse(sql))
+        self.assertEqual(ex.run(parse("DELETE FROM users WHERE id = 2")), 1)
+        self.assertEqual(ex.run(parse("SELECT id FROM users")), [{"id": 1}, {"id": 3}])
+        self.assertEqual(ex.run(parse("DELETE FROM users WHERE score > 100")), 0)
+
+
+class UpdateExecutorTests(unittest.TestCase):
+    def test_update_matching_rows(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users VALUES (1, 'al', 2.0)"))
+        ex.run(parse("INSERT INTO users VALUES (2, 'bo', 3.0)"))
+        self.assertEqual(ex.run(parse("UPDATE users SET name = 'zed' WHERE id = 2")), 1)
+        self.assertEqual(ex.run(parse("SELECT name FROM users WHERE id = 2")), [{"name": "zed"}])
+        with self.assertRaises(Exception):
+            ex.run(parse("UPDATE users SET id = 9 WHERE id = 1"))
+
+
+class DropTableExecutorTests(unittest.TestCase):
+    def test_group_by_one_row_per_group(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        rows = ex.run(parse("SELECT name FROM users GROUP BY name"))
+        self.assertEqual(len(rows), len({r["name"] for r in ex.tables["users"].scan()}))
+
+    def test_having_filters_groups(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT name FROM users GROUP BY name HAVING name = 'z'"))
+        self.assertEqual(rows, [{"name": "z"}])
+
+    def test_where_addition(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT id FROM users WHERE id + 1 = 10"))
+        self.assertEqual(rows, [{"id": 9}])
+
+    def test_where_subtraction(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT id FROM users WHERE id - 1 = 8"))
+        self.assertEqual(rows, [{"id": 9}])
+
+    def test_where_multiplication_precedence(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (9, 'z')"))
+        rows = ex.run(parse("SELECT id FROM users WHERE id + 1 * 2 = 11"))
+        self.assertEqual(rows, [{"id": 9}])
+
+    def test_where_negative_literal(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-3, 'n')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE id = -3"))
+        self.assertEqual(rows, [{"name": "n"}])
+
+    def test_where_unary_minus_on_column(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-4, 'm')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE -id = 4"))
+        self.assertEqual(rows, [{"name": "m"}])
+
+    def test_where_integer_division_truncates(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (7, 'd')"))
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-7, 'e')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE id / 2 = 3"))
+        self.assertEqual(rows, [{"name": "d"}])
+        rows = ex.run(parse("SELECT name FROM users WHERE id / 2 = -3"))
+        self.assertEqual(rows, [{"name": "e"}])
+
+    def test_where_modulo_sign_follows_dividend(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("INSERT INTO users (id, name) VALUES (7, 'd')"))
+        ex.run(parse("INSERT INTO users (id, name) VALUES (-7, 'e')"))
+        rows = ex.run(parse("SELECT name FROM users WHERE id % 2 = 1"))
+        self.assertEqual(rows, [{"name": "d"}])
+        rows = ex.run(parse("SELECT name FROM users WHERE id % 2 = -1"))
+        self.assertEqual(rows, [{"name": "e"}])
+
+    def test_group_by_rejects_ungrouped_column(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+        from tinysql.executor import ExecError
+
+        ex = demo_executor()
+        with self.assertRaises(ExecError):
+            ex.run(parse("SELECT id FROM users GROUP BY name"))
+
+    def test_create_if_not_exists_keeps_existing_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        before = ex.tables["users"]
+        ex.run(parse("CREATE TABLE IF NOT EXISTS users (id INT, PRIMARY KEY (id))"))
+        self.assertIs(ex.tables["users"], before)
+
+    def test_drop_if_exists_ignores_missing_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("DROP TABLE IF EXISTS nope"))
+        ex.run(parse("DROP TABLE IF EXISTS users"))
+        self.assertNotIn("users", ex.tables)
+
+    def test_drop_removes_table(self):
+        from tinysql.cli import demo_executor
+        from tinysql.executor import ExecError
+        from tinysql.parser import parse
+
+        ex = demo_executor()
+        ex.run(parse("DROP TABLE users"))
+        self.assertNotIn("users", ex.tables)
+        with self.assertRaises(ExecError):
+            ex.run(parse("SELECT * FROM users"))
+        with self.assertRaises(ExecError):
+            ex.run(parse("DROP TABLE users"))
+
+
+    def test_create_index_then_table_lookup(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        self.assertEqual([r["id"] for r in db.tables["t"].lookup("name", "bob")], [2])
+        db.run(parse("INSERT INTO t VALUES (3, 'bob')"))
+        self.assertEqual([r["id"] for r in db.tables["t"].lookup("name", "bob")], [2, 3])
+
+    def test_select_uses_index_for_and_equality(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, age INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann', 30), (2, 'bob', 30), (3, 'bob', 40)"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE age = 30 AND name = 'bob'"))
+        self.assertEqual([r["id"] for r in rows], [2])
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'bob' AND age > 35"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
+    def test_select_uses_index_for_or_equality(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, age INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann', 30), (2, 'bob', 30), (3, 'bob', 40)"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        db.run(parse("CREATE INDEX ON t (age)"))
+        # Row 2 matches both branches and must appear once.
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'bob' OR age = 30"))
+        self.assertEqual([r["id"] for r in rows], [1, 2, 3])
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'ann' OR age = 40"))
+        self.assertEqual([r["id"] for r in rows], [1, 3])
+
+    def test_select_uses_index_for_in_list(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob'), (3, 'cy')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE name IN ('cy', 'ann', 'ann')"))
+        self.assertEqual([r["id"] for r in rows], [1, 3])
+        # A NULL item keeps the scan, so the result still follows SQL three-valued logic.
+        rows = db.run(parse("SELECT id FROM t WHERE name IN ('bob', NULL)"))
+        self.assertEqual([r["id"] for r in rows], [2])
+
+    def test_select_uses_index_for_between(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, n INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 5), (2, 10), (3, 15)"))
+        db.run(parse("CREATE INDEX ON t (n)"))
+        rows = db.run(parse("SELECT id FROM t WHERE n BETWEEN 5 AND 10"))
+        self.assertEqual([r["id"] for r in rows], [1, 2])
+        rows = db.run(parse("SELECT id FROM t WHERE n NOT BETWEEN 5 AND 10"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
+    def test_select_uses_index_for_range(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, age INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 30), (2, 25), (3, 40), (4, 30)"))
+        db.run(parse("CREATE INDEX ON t (age)"))
+        rows = db.run(parse("SELECT id FROM t WHERE age > 25"))
+        self.assertEqual([r["id"] for r in rows], [1, 3, 4])
+        rows = db.run(parse("SELECT id FROM t WHERE age <= 30"))
+        self.assertEqual([r["id"] for r in rows], [1, 2, 4])
+        rows = db.run(parse("SELECT id FROM t WHERE age < 30"))
+        self.assertEqual([r["id"] for r in rows], [2])
+        rows = db.run(parse("SELECT id FROM t WHERE age >= 40"))
+        self.assertEqual([r["id"] for r in rows], [3])
+
+    def test_create_index_errors(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, PRIMARY KEY (id))"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON nope (id)"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON t (nope)"))
+        with self.assertRaises(ExecError):
+            db.run(parse("CREATE INDEX ON t (id)"))
+
+    def test_select_equality_uses_index_and_keeps_filter(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob'), (3, 'bob')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE name = 'bob' AND id > 2"))
+        self.assertEqual(rows, [{"id": 3}])
+        self.assertEqual(db.run(parse("SELECT id FROM t WHERE name = 'zed'")), [])
+
+if __name__ == "__main__":
+    unittest.main()
