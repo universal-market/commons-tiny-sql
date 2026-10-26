@@ -167,6 +167,15 @@ class Executor:
         return [left, right] if left and right else None
 
     @staticmethod
+    def _indexed_in(table: Table, where) -> Optional[List[Tuple[str, Any]]]:
+        """(column, value) terms when WHERE is `indexed_column IN (literal, ...)` with no NULL items, or None."""
+        if (isinstance(where, InList) and isinstance(where.operand, Column)
+                and table.has_index(where.operand.name)
+                and all(isinstance(item, Literal) and item.value is not None for item in where.items)):
+            return [(where.operand.name, item.value) for item in where.items]
+        return None
+
+    @staticmethod
     def _union_lookup(table: Table, terms: List[Tuple[str, Any]]) -> List[Dict[str, Any]]:
         """Rows matching any term, once each, in primary-key order."""
         found: Dict[Any, Dict[str, Any]] = {}
@@ -186,6 +195,9 @@ class Executor:
         either = self._indexed_or(table, stmt.where)
         if either is not None:
             source = lambda: self._union_lookup(table, either)
+        in_terms = self._indexed_in(table, stmt.where)
+        if indexed is None and either is None and in_terms is not None:
+            source = lambda: self._union_lookup(table, in_terms)
         ranged = self._indexed_range(table, stmt.where)
         if indexed is None and either is None and ranged is not None:
             source = lambda: table.lookup_where(*ranged)

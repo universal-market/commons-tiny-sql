@@ -460,6 +460,17 @@ class DropTableExecutorTests(unittest.TestCase):
         rows = db.run(parse("SELECT id FROM t WHERE name = 'ann' OR age = 40"))
         self.assertEqual([r["id"] for r in rows], [1, 3])
 
+    def test_select_uses_index_for_in_list(self):
+        db = make_db()
+        db.run(parse("CREATE TABLE t (id INT, name TEXT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 'ann'), (2, 'bob'), (3, 'cy')"))
+        db.run(parse("CREATE INDEX ON t (name)"))
+        rows = db.run(parse("SELECT id FROM t WHERE name IN ('cy', 'ann', 'ann')"))
+        self.assertEqual([r["id"] for r in rows], [1, 3])
+        # A NULL item keeps the scan, so the result still follows SQL three-valued logic.
+        rows = db.run(parse("SELECT id FROM t WHERE name IN ('bob', NULL)"))
+        self.assertEqual([r["id"] for r in rows], [2])
+
     def test_select_uses_index_for_range(self):
         db = make_db()
         db.run(parse("CREATE TABLE t (id INT, age INT, PRIMARY KEY (id))"))
