@@ -75,6 +75,17 @@ class PagedTreeTest(unittest.TestCase):
         self.assertLess(os.path.getsize(self.path), len(before))
         self.assertEqual(list(read_tree(self.path).items()), list(tree.items()))
 
+    def test_indexes_survive_reload(self):
+        db = Executor({})
+        db.run(parse("CREATE TABLE t (id INT, n INT, PRIMARY KEY (id))"))
+        db.run(parse("INSERT INTO t VALUES (1, 5), (2, 10), (3, 15)"))
+        db.run(parse("CREATE INDEX ON t (n)"))
+        write_database(db.tables, self.path)
+        loaded = read_database(self.path)
+        self.assertTrue(loaded["t"].has_index("n"))
+        rows = Executor(loaded).run(parse("SELECT id FROM t WHERE n = 10"))
+        self.assertEqual([r["id"] for r in rows], [2])
+
     def test_database_survives_delete_and_update(self):
         users = Table("users", [Column("id", int), Column("name", str)], primary_key="id")
         db = Executor({"users": users})

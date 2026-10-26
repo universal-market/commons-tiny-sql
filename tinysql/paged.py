@@ -111,6 +111,7 @@ def _write_database_file(tables: dict, path: str) -> None:
             catalog[name] = {
                 "root": root,
                 "primary_key": table.primary_key,
+                "indexes": sorted(table._indexes),
                 "columns": [
                     {"name": c.name, "type": _TYPE_NAMES[c.type], "nullable": c.nullable}
                     for c in table.columns
@@ -136,5 +137,7 @@ def read_database(path: str) -> dict:
             tree._size = sum(1 for _ in root_items(root))
             for _, row in tree.items():
                 table.insert(row)
+            for column in meta.get("indexes", []):
+                table.create_index(column)
             tables[name] = table
     return tables
